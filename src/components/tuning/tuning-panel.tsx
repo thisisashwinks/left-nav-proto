@@ -369,6 +369,8 @@ import {
   LAUNCHPAD_CARD_LABELS,
   TOP_ALIGN_NUDGE_MIN,
   TOP_ALIGN_NUDGE_MAX,
+  CARD_GAP_MIN,
+  CARD_GAP_MAX,
   RAIL_ZOOM_FITS,
   RAIL_ZOOM_FIT_LABELS,
   RAIL_DIRECTORY_SPOTS,
@@ -377,6 +379,8 @@ import {
   RAIL_RECENTS_LABELS,
   RECENTS_MODE_LABELS,
   RECENTS_MODES,
+  RECENTS_REACH_LABELS,
+  RECENTS_REACHES,
   SCOPE_MODEL_LABELS,
   SCOPE_MODELS,
   ADD_PRODUCT_STYLE_LABELS,
@@ -686,6 +690,7 @@ import {
   type RailZoomFit,
   type LaunchpadCard,
   type RecentsMode,
+  type RecentsReach,
   MERGED_PIN_SCOPES,
   MERGED_PIN_SCOPE_LABELS,
   MERGED_PIN_MARKS,
@@ -774,7 +779,19 @@ import {
   BRANDING_PRESETS,
   AVATAR_STYLE_LABELS,
   ONBOARDING_STYLE_LABELS,
+  ONBOARDING_THEME_STEP_LABELS,
+  type OnboardingThemeStep,
+  ICON_DISPLAY_LABELS,
+  type IconDisplay,
   type OnboardingStyle,
+  LAYOUT_THEME_LABELS,
+  COMBINED_THEME_LABELS,
+  PALETTE_OPENS_LABELS,
+  APPLY_SCOPE_LABELS,
+  type LayoutThemeMode,
+  type CombinedTheme,
+  type PaletteOpens,
+  type ApplyScope,
   PRIOR_LOGOS_LABELS,
   type AvatarStyle,
   type PriorLogos,
@@ -931,6 +948,10 @@ function NavStructureSection({
     setSearchReveal,
     recentsMode,
     setRecentsMode,
+    recentsReach,
+    setRecentsReach,
+    launchpadCardGap,
+    setLaunchpadCardGap,
     launchpadCard,
     setLaunchpadCard,
     railRuleAlign,
@@ -3347,6 +3368,35 @@ function NavStructureSection({
       />
 
       <Segmented
+        label="Recents reach"
+        keywords="recents pinned pin section remove removed history recently visited panel flyout shortcuts"
+        options={RECENTS_REACHES}
+        value={recentsReach}
+        onChange={(v: RecentsReach) => setRecentsReach(v)}
+        format={(v) => RECENTS_REACH_LABELS[v]}
+      />
+      <Note>
+        {recentsReach === "nav"
+          ? "What ships today: the nav block carries pins and history, the panel opens on Recently visited, and the flyouts keep their recent rows."
+          : recentsReach === "elsewhere"
+            ? "The nav block becomes Pinned — nothing pinned, nothing drawn. History stays one click away in the panel and the flyouts."
+            : "Recents gone: no history block, no Recently visited tab, no recent rows. Pins are the only shortcut the product has."}
+      </Note>
+
+      <Stepper
+        label="Gap under Launchpad card"
+        value={launchpadCardGap}
+        min={CARD_GAP_MIN}
+        max={CARD_GAP_MAX}
+        onChange={setLaunchpadCardGap}
+        hint={
+          recentsReach === "nav"
+            ? "Applies only with Recents reach set to Panel or Removed, and nothing pinned — where no block follows the card. Here a heading does, and it brings its own 14px."
+            : "px under the card while nothing follows it. Replaces the card's own 2px rather than adding to it. The gap goes with the card when the card is hidden, and ends the moment anything is pinned."
+        }
+      />
+
+      <Segmented
         label="Inline recents"
         options={RECENTS_MODES}
         value={recentsMode}
@@ -3365,7 +3415,7 @@ function NavStructureSection({
 
       <Segmented
         label="Recents and pins start"
-        keywords="recents pins pinned seeded fresh first login history empty dashboard"
+        keywords="recents pins pinned pinned section seeded fresh first login history empty dashboard starter pins contacts calendars conversations pre-pinned"
         options={NAV_RECENTS_STARTS}
         value={navRecentsStart}
         onChange={(v: NavRecentsStart) => setNavRecentsStart(v)}
@@ -3374,7 +3424,9 @@ function NavStructureSection({
       <Note>
         {navRecentsStart === "fresh"
           ? "Every sub-account opens with Dashboard as its only recent and nothing pinned. Pages you open join Recents; pins are yours to add. Switching resets this account now, and others when you next open them."
-          : "Each sub-account's seeded pins, and a Recents that lists every product it has — a full list, not a real history. Switching resets this account now, and others when you next open them."}
+          : navRecentsStart === "starter"
+            ? "Three pins to start — Contacts, Calendars, and Conversations — and the same one-row history as a first login. Pair it with a Recents reach of Panel or Removed, where nothing pinned means no block to look at."
+            : "Each sub-account's seeded pins, and a Recents that lists every product it has — a full list, not a real history. Switching resets this account now, and others when you next open them."}
       </Note>
 
       {/*
@@ -3778,6 +3830,61 @@ function BrandingSection({
             ? "Goes to Agency settings › Company, to a Branding tab beside White label."
             : "Every “Customize theme” button (speed dial, avatar menu, top bar icon) goes here."}
       </Note>
+      {/* Nov 24: layout + theme ---------------------------------------- */}
+      <Segmented
+        label="Layout and theme"
+        options={["separate", "combined"] as const}
+        value={proto.layoutTheme}
+        onChange={(v: LayoutThemeMode) => setProto({ layoutTheme: v })}
+        format={(v) => LAYOUT_THEME_LABELS[v]}
+        keywords={`layout theme combined separate edit mode one flow speed dial ${kw}`}
+      />
+      <Note>
+        {proto.layoutTheme === "combined"
+          ? "One Edit button, straight into edit mode. The theme is part of editing."
+          : "Edit offers Edit layout and Customize theme as two separate flows."}
+      </Note>
+      <Segmented
+        label="Theme in combined"
+        options={["edit-card", "current"] as const}
+        value={proto.combinedTheme}
+        onChange={(v: CombinedTheme) => setProto({ combinedTheme: v })}
+        format={(v) => COMBINED_THEME_LABELS[v]}
+        disabled={proto.layoutTheme !== "combined"}
+        keywords={`combined edit card color palette icon theme ${kw}`}
+      />
+      <Segmented
+        label="Color icon opens"
+        options={["inline", "door"] as const}
+        value={proto.paletteOpens}
+        onChange={(v: PaletteOpens) => setProto({ paletteOpens: v })}
+        format={(v) => PALETTE_OPENS_LABELS[v]}
+        disabled={proto.layoutTheme !== "combined" || proto.combinedTheme !== "edit-card"}
+        keywords={`combined edit card color palette icon inline popover door ${kw}`}
+      />
+      <Note>
+        {proto.layoutTheme !== "combined"
+          ? "Applies when Layout and theme is Combined."
+          : proto.combinedTheme === "current"
+            ? "Theme stays where it is today. Only saving changes: it asks all or selected sub-accounts."
+            : proto.paletteOpens === "inline"
+              ? "The edit card's color icon opens the theme beside it; it saves with the layout."
+              : "The edit card's color icon goes where Customize theme opens."}
+      </Note>
+      <Segmented
+        label="Theme applies to"
+        options={["all", "ask"] as const}
+        value={proto.applyScope}
+        onChange={(v: ApplyScope) => setProto({ applyScope: v })}
+        format={(v) => APPLY_SCOPE_LABELS[v]}
+        keywords={`selective selected sub-accounts all scope apply theme onboarding white label bulk ${kw}`}
+      />
+      <Note>
+        {proto.applyScope === "ask"
+          ? "Saving a theme (White label, onboarding, edit mode) asks: all sub-accounts or selected ones. Unselected keep their current theme."
+          : "Saving a theme applies it to the agency and every sub-account."}
+      </Note>
+
       {/* Nov 20 ------------------------------------------------------- */}
       <Toggle
         label="Switchyard onboarding"
@@ -3799,6 +3906,14 @@ function BrandingSection({
         keywords={`onboarding style layout split preview stepper modal ${kw}`}
       />
       <Segmented
+        label="Onboarding theme step"
+        options={["themes", "full"] as const}
+        value={proto.onboardingThemeStep}
+        onChange={(v: OnboardingThemeStep) => setProto({ onboardingThemeStep: v })}
+        format={(v) => ONBOARDING_THEME_STEP_LABELS[v]}
+        keywords={`onboarding theme step gradient font color mode full controls ${kw}`}
+      />
+      <Segmented
         label="Agency's logos before"
         options={["full", "none"] as const}
         value={proto.priorLogos}
@@ -3806,6 +3921,19 @@ function BrandingSection({
         format={(v) => PRIOR_LOGOS_LABELS[v]}
         keywords={`onboarding existing user full logo wordmark upload ${kw}`}
       />
+      <Segmented
+        label="Sidebar icon shows"
+        options={["logo", "avatar"] as const}
+        value={proto.iconDisplay}
+        onChange={(v: IconDisplay) => setProto({ iconDisplay: v })}
+        format={(v) => ICON_DISPLAY_LABELS[v]}
+        keywords={`sidebar icon avatar initials logo square rail onboarding ${kw}`}
+      />
+      <Note>
+        {proto.iconDisplay === "logo"
+          ? "The uploaded square icon shows in the rail and header. No upload: the initials avatar."
+          : "Always the initials avatar, even when a square icon is uploaded. Its initials and color are editable."}
+      </Note>
       <Segmented
         label="Initials background"
         options={["solid", "gradient"] as const}

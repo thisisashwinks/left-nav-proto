@@ -184,36 +184,62 @@ const presetFine = (l: [string, string, string], d: [string, string, string]): F
 /** BRAND_FONTS id of the platform font. Up here: presets read it at module load. */
 export const DEFAULT_FONT_ID = "inter";
 
-/** HighRise first — it is the platform default and equals "unbranded". */
+/**
+ * The theme set (redone Nov 24). Each theme is a hand-picked pair per mode —
+ * sidebar + accent for light, sidebar + accent for dark — not one brand
+ * colour pushed through maths, which is what made the first sets read as
+ * generated.
+ *
+ * Two families, the way Slack, Apple, and shadcn each split theirs:
+ *
+ *   Calm     near-white sidebars with the faintest tint (L 95–97, low
+ *            chroma), and a deep accent (the 700–800 step) for the selected
+ *            row's text and tint. Quiet enough to live with all day.
+ *   Bold     the sidebar IS the colour — deep, saturated, Slack-style — with
+ *            white ink, and a light, clean accent for the indicators.
+ *
+ * Dark mode is never an inversion: every theme gets its own deep, tinted
+ * dark sidebar (L 6–13) and a lifted accent that clears 3:1 on it.
+ *
+ * Rail = sidebar on every preset (Ashwin, Nov 19).
+ */
 export const BRANDING_PRESETS: readonly BrandingPreset[] = [
+  // First two rows (shown before "Show more") mix calm and bold, so the
+  // range is visible at a glance. Calm: near-white + deep accent. Bold: the
+  // sidebar is the colour, with a light accent.
   { id: "highrise", label: "HighLevel", brand: "#155eef", accent: null, chrome: "light" },
-  // Nov 19 set (Ashwin's reference): exact colours for light and dark.
-  { id: "zesty-citrus", label: "Zesty Citrus", brand: "#fbcfba", accent: "#c25826", chrome: "brand",
-    fine: presetFine(["#fbcfba", "#c25826", "#fbcfba"], ["#3b1a0f", "#e8875a", "#2e140b"]) },
-  { id: "royal-velvet", label: "Royal Velvet", brand: "#3d1f4a", accent: "#c99be0", chrome: "brand",
-    fine: presetFine(["#3d1f4a", "#c99be0", "#311a3c"], ["#1f1026", "#c99be0", "#180c1e"]) },
-  { id: "sunny-delight", label: "Sunny Delight", brand: "#fdf0b5", accent: "#a87b00", chrome: "brand",
-    fine: presetFine(["#fdf0b5", "#a87b00", "#fdf0b5"], ["#2b2306", "#f2cf55", "#221b04"]) },
-  { id: "lush-meadow", label: "Lush Meadow", brand: "#d3e6da", accent: "#3d7356", chrome: "brand",
-    fine: presetFine(["#d3e6da", "#3d7356", "#d3e6da"], ["#11261b", "#74b791", "#0c1d14"]) },
-  { id: "azure-dreams", label: "Azure Dreams", brand: "#dbe9f6", accent: "#2f6496", chrome: "brand",
-    fine: presetFine(["#dbe9f6", "#2f6496", "#dbe9f6"], ["#0e1e2f", "#7fb1e3", "#0a1724"]) },
-  { id: "bubblegum-bliss", label: "Bubblegum Bliss", brand: "#fbe3ec", accent: "#b4587a", chrome: "brand",
-    fine: presetFine(["#fbe3ec", "#b4587a", "#fbe3ec"], ["#2b111b", "#eb9cb8", "#210c14"]) },
-  { id: "ivory-whisper", label: "Ivory Whisper", brand: "#eeeeec", accent: "#2a2a2a", chrome: "brand",
-    fine: presetFine(["#eeeeec", "#2a2a2a", "#eeeeec"], ["#1b1b1b", "#e6e6e6", "#131313"]) },
-  { id: "midnight-deep", label: "Midnight Deep", brand: "#e3e6fb", accent: "#1f2675", chrome: "brand",
-    fine: presetFine(["#e3e6fb", "#1f2675", "#e3e6fb"], ["#0d1033", "#9aa2f2", "#090b26"]) },
-  // Nov 18 set.
-  { id: "midnight", label: "Midnight", brand: "#155eef", accent: null, chrome: "dark" },
-  { id: "plum", label: "Plum", brand: "#4a1d5c", accent: "#e8b04a", chrome: "brand" },
-  { id: "forest", label: "Forest", brand: "#1e4d3a", accent: "#7bd3a0", chrome: "brand" },
-  { id: "ocean", label: "Ocean", brand: "#0b5c8f", accent: "#5ec8f0", chrome: "brand" },
-  // Coral accent (Nov 19): with none, the accent WAS the brand red, so the
-  // swatch was one colour and selected rows vanished into the sidebar.
-  { id: "ember", label: "Ember", brand: "#b42318", accent: "#fda29b", chrome: "brand" },
-  { id: "sand", label: "Sand", brand: "#c08a3e", accent: null, chrome: "light" },
-  { id: "graphite", label: "Graphite", brand: "#2b2f36", accent: "#f79009", chrome: "brand" },
+  { id: "mist", label: "Mist", brand: "#1d4f91", accent: "#1d4f91", chrome: "brand",
+    fine: presetFine(["#edf3fa", "#1d4f91", ""], ["#0b1726", "#8db6ec", ""]) },
+  { id: "plum", label: "Plum", brand: "#3f0e40", accent: "#e1b3e2", chrome: "brand",
+    fine: presetFine(["#3f0e40", "#e1b3e2", ""], ["#1e081f", "#e1b3e2", ""]) },
+  { id: "sage", label: "Sage", brand: "#2f5d3a", accent: "#2f5d3a", chrome: "brand",
+    fine: presetFine(["#eef3ee", "#2f5d3a", ""], ["#0f1b13", "#8cc59b", ""]) },
+  { id: "midnight", label: "Midnight", brand: "#1c2433", accent: "#86aefc", chrome: "brand",
+    fine: presetFine(["#1c2433", "#86aefc", ""], ["#0e131c", "#86aefc", ""]) },
+  { id: "lavender", label: "Lavender", brand: "#553c9a", accent: "#553c9a", chrome: "brand",
+    fine: presetFine(["#f3f0fa", "#553c9a", ""], ["#16112a", "#b8a5f0", ""]) },
+  { id: "forest", label: "Forest", brand: "#163a2b", accent: "#86d3ac", chrome: "brand",
+    fine: presetFine(["#163a2b", "#86d3ac", ""], ["#0b1d15", "#86d3ac", ""]) },
+  { id: "slate", label: "Slate", brand: "#1e293b", accent: "#1e293b", chrome: "brand",
+    fine: presetFine(["#f1f5f9", "#1e293b", ""], ["#0f172a", "#94a3b8", ""]) },
+  { id: "zinc", label: "Zinc", brand: "#18181b", accent: "#18181b", chrome: "brand",
+    fine: presetFine(["#f4f4f5", "#18181b", ""], ["#18181b", "#d4d4d8", ""]) },
+  { id: "blush", label: "Blush", brand: "#9f1239", accent: "#9f1239", chrome: "brand",
+    fine: presetFine(["#fbf0f2", "#9f1239", ""], ["#200b10", "#f9a8b8", ""]) },
+  { id: "indigo", label: "Indigo", brand: "#24275a", accent: "#a9b4fb", chrome: "brand",
+    fine: presetFine(["#24275a", "#a9b4fb", ""], ["#121430", "#a9b4fb", ""]) },
+  { id: "sand", label: "Sand", brand: "#57401f", accent: "#7a4a12", chrome: "brand",
+    fine: presetFine(["#f6f2ea", "#7a4a12", ""], ["#1b160f", "#e2bd7e", ""]) },
+  { id: "lagoon", label: "Lagoon", brand: "#0d3b47", accent: "#79d4e2", chrome: "brand",
+    fine: presetFine(["#0d3b47", "#79d4e2", ""], ["#071f26", "#79d4e2", ""]) },
+  { id: "apricot", label: "Apricot", brand: "#9a3412", accent: "#9a3412", chrome: "brand",
+    fine: presetFine(["#fcf2ea", "#9a3412", ""], ["#1f1109", "#fdba8c", ""]) },
+  { id: "oxblood", label: "Oxblood", brand: "#4a1219", accent: "#f2a9b0", chrome: "brand",
+    fine: presetFine(["#4a1219", "#f2a9b0", ""], ["#250a0d", "#f2a9b0", ""]) },
+  { id: "espresso", label: "Espresso", brand: "#2e221b", accent: "#e3c19b", chrome: "brand",
+    fine: presetFine(["#2e221b", "#e3c19b", ""], ["#17110d", "#e3c19b", ""]) },
+  { id: "ink", label: "Ink", brand: "#111113", accent: "#e4e4e7", chrome: "brand",
+    fine: presetFine(["#111113", "#e4e4e7", ""], ["#09090b", "#e4e4e7", ""]) },
 ];
 
 export function themeFromPreset(p: BrandingPreset): BrandingTheme {
@@ -403,10 +429,40 @@ export const AVATAR_STYLE_LABELS: Record<AvatarStyle, string> = {
   solid: "Solid color",
   gradient: "Gradient",
 };
+export type LayoutThemeMode = "separate" | "combined";
+export const LAYOUT_THEME_LABELS: Record<LayoutThemeMode, string> = {
+  separate: "Separate",
+  combined: "Combined",
+};
+export type CombinedTheme = "edit-card" | "current";
+export const COMBINED_THEME_LABELS: Record<CombinedTheme, string> = {
+  "edit-card": "Edit card icon",
+  current: "As it is now",
+};
+export type PaletteOpens = "inline" | "door";
+export const PALETTE_OPENS_LABELS: Record<PaletteOpens, string> = {
+  inline: "Inline in edit mode",
+  door: "Customize theme door",
+};
+export type ApplyScope = "all" | "ask";
+export const APPLY_SCOPE_LABELS: Record<ApplyScope, string> = {
+  all: "All sub-accounts",
+  ask: "Ask: all or selected",
+};
+export type OnboardingThemeStep = "themes" | "full";
+export const ONBOARDING_THEME_STEP_LABELS: Record<OnboardingThemeStep, string> = {
+  themes: "Themes only",
+  full: "Full controls",
+};
 export type OnboardingStyle = "stepper" | "split";
 export const ONBOARDING_STYLE_LABELS: Record<OnboardingStyle, string> = {
   stepper: "Stepper",
   split: "Split preview",
+};
+export type IconDisplay = "logo" | "avatar";
+export const ICON_DISPLAY_LABELS: Record<IconDisplay, string> = {
+  logo: "Uploaded icon",
+  avatar: "Avatar",
 };
 export type PriorLogos = "full" | "none";
 export const PRIOR_LOGOS_LABELS: Record<PriorLogos, string> = {
@@ -432,8 +488,27 @@ export interface BrandingProto {
    * Off by default.
    */
   onboarding: boolean;
+  /**
+   * Layout and theme (Nov 24): Separate (Edit offers "Edit layout" and
+   * "Customize theme") or Combined (one Edit button; the theme lives in the
+   * edit session).
+   */
+  layoutTheme: LayoutThemeMode;
+  /** Combined only: the theme on the edit card's colour icon, or where it is today. */
+  combinedTheme: CombinedTheme;
+  /** Combined + edit card: the colour icon opens inline, or the Customize theme door. */
+  paletteOpens: PaletteOpens;
+  /** Saving an agency theme: always all sub-accounts, or ask all / selected. */
+  applyScope: ApplyScope;
+  /** Onboarding's Theme step: just the themes, or every control White label has. */
+  onboardingThemeStep: OnboardingThemeStep;
   /** Onboarding's look (Nov 23): step list + preview, or card + big preview. */
   onboardingStyle: OnboardingStyle;
+  /**
+   * Sidebar icon shows (Nov 24): the uploaded square logo, or always the
+   * initials avatar. With no upload it is the avatar either way.
+   */
+  iconDisplay: IconDisplay;
   /** No square icon: initials on a solid colour from the logo, or a gradient. */
   avatarStyle: AvatarStyle;
   /** What the agency had uploaded before Switchyard — sets up the demo. */
@@ -458,10 +533,16 @@ export const DEFAULT_BRANDING_PROTO: BrandingProto = {
   customizeTarget: "white-label-section",
   moreOptions: "more-options",
   applyConfirm: true,
-  onboarding: false,
+  onboarding: true,
+  layoutTheme: "separate",
+  combinedTheme: "edit-card",
+  paletteOpens: "inline",
+  applyScope: "all",
   onboardingStyle: "stepper",
+  onboardingThemeStep: "themes",
+  iconDisplay: "logo",
   avatarStyle: "solid",
-  priorLogos: "full",
+  priorLogos: "none",
   modeScope: "chrome",
   fontScope: "chrome",
   saveTarget: "agency",
@@ -477,7 +558,7 @@ export const DEFAULT_BRANDING_PROTO: BrandingProto = {
 
 /** Space-separated, for the tuning panel's search. Every branding control carries it. */
 export const BRANDING_KEYWORDS =
-  "branding brand theme theming colors colours palette customize customise logo favicon tab title sidebar rail top bar chrome white label hex preset font typeface gradient color mode appearance dark light system layout save agency edit nav button speed dial fab floating action modal white label customize onboarding setup coachmarks";
+  "branding brand theme theming colors colours palette customize customise logo favicon tab title sidebar rail top bar chrome white label hex preset font typeface gradient color mode appearance dark light system layout save agency edit nav button speed dial fab floating action modal white label customize onboarding setup coachmarks combined separate selective selected sub-accounts scope apply";
 
 /* ---------------------------------------------------------------------- */
 /* Colour engine                                                           */

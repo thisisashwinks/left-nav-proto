@@ -4,6 +4,13 @@ import * as React from "react";
 import { Check, Copy, ImageUp, Info, Plus } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { useBrand } from "@/components/accounts/brand-store";
+import { accounts as SEED_ACCOUNTS } from "@/components/accounts/accounts-data";
+import { useBranding } from "@/components/branding/branding-provider";
+import { useNavTemplates } from "@/components/nav/nav-templates";
+import { brandInitials, logoName, trimLogo } from "@/lib/logo-trim";
+import { logoColors } from "@/lib/logo-colors";
+import { avatarColorFrom, avatarTile } from "@/design/branding";
+import { AvatarEditor } from "@/components/branding/switchyard-onboarding";
 import { Select } from "@/components/page/form-controls";
 import { cn } from "@/lib/utils";
 import { PageTitle, usePageChrome } from "@/components/page/page-header";
@@ -32,8 +39,115 @@ import {
  * the nav gets the asset.
  */
 export function BusinessProfilePage({ account }: { account: Account }) {
-  const { set, clear } = useBrand();
+  const { set, clear, setName, setAvatar, names, avatars, uploads } = useBrand();
+  const { proto } = useBranding();
+  const templates = useNavTemplates();
   const owner = ownerFor(account);
+
+  /*
+   * Logos and the friendly name are one draft (Nov 23), committed by Update
+   * Information — the same rule as the agency's Brand card. A full logo is
+   * trimmed of empty margin and its name fills Friendly Business Name; saved,
+   * that name renames the account and its initials avatar, and the account's
+   * sidebar shows the uploaded full logo in place of its name.
+   */
+  const seedName = SEED_ACCOUNTS.find((a) => a.id === account.id)?.name ?? account.name;
+  const [logoDraft, setLogoDraft] = React.useState<{ wordmark?: string | null; icon?: string | null }>({});
+  const [iconError, setIconError] = React.useState<string | null>(null);
+  const [friendly, setFriendly] = React.useState(account.name);
+  const [avatarDraft, setAvatarDraft] = React.useState<{ initials?: string; color?: string }>({});
+  // A different account opened in the same page: start its draft fresh.
+  const [seenId, setSeenId] = React.useState(account.id);
+  if (seenId !== account.id) {
+    setSeenId(account.id);
+    setLogoDraft({});
+    setIconError(null);
+    setFriendly(account.name);
+    setAvatarDraft({});
+  }
+  const shownWordmark = logoDraft.wordmark === undefined ? account.wordmarkSrc : logoDraft.wordmark ?? undefined;
+  // The upload itself, even when "Sidebar icon shows: Avatar" hides it in the nav.
+  const shownIcon =
+    logoDraft.icon === undefined ? uploads[account.id]?.logoSrc ?? account.logoSrc : logoDraft.icon ?? undefined;
+
+  /*
+   * The avatar (Nov 24): initials and a solid colour, part of the same
+   * draft. The colour defaults to the one read off the full logo; the
+   * initials follow the friendly name until edited.
+   */
+  const [wordmarkColors, setWordmarkColors] = React.useState<string[]>([]);
+  React.useEffect(() => {
+    let live = true;
+    if (!shownWordmark) {
+      setWordmarkColors([]);
+      return;
+    }
+    void logoColors(shownWordmark).then((c) => {
+      if (live) setWordmarkColors(c);
+    });
+    return () => {
+      live = false;
+    };
+  }, [shownWordmark]);
+  const savedTile = avatars[account.id];
+  const suggested = wordmarkColors[0] ? avatarColorFrom(wordmarkColors[0]) : undefined;
+  const avatarColor =
+    avatarDraft.color ??
+    (savedTile?.custom ? savedTile.color : undefined) ??
+    suggested ??
+    savedTile?.color ??
+    account.logo.from;
+  const nameInitials = brandInitials((friendly || account.name).trim().split(/\s+/)[0] || "?");
+  const avatarInitials =
+    avatarDraft.initials ??
+    (friendly.trim() === account.name ? names[account.id]?.initials ?? account.logo.initials ?? nameInitials : nameInitials);
+  const showAvatarEditor = !shownIcon || proto.iconDisplay === "avatar";
+
+  const pickWordmark = async (src: string, fileName?: string) => {
+    const [trimmed, name] = await Promise.all([trimLogo(src), logoName(src, fileName)]);
+    setLogoDraft((d) => ({ ...d, wordmark: trimmed }));
+    if (name) setFriendly(name);
+  };
+  const pickIcon = (src: string) => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      if (Math.abs(w - h) > 2) return setIconError("Use a square image, like 512 × 512 px.");
+      if (w < 128) return setIconError("Use an image at least 128 × 128 px.");
+      setIconError(null);
+      setLogoDraft((d) => ({ ...d, icon: src }));
+    };
+    img.src = src;
+  };
+  const commit = async () => {
+    const wordmark = logoDraft.wordmark;
+    if (wordmark !== undefined) {
+      if (wordmark) set(account.id, "wordmarkSrc", wordmark);
+      else clear(account.id, "wordmarkSrc");
+    }
+    if (logoDraft.icon !== undefined) {
+      if (logoDraft.icon) set(account.id, "logoSrc", logoDraft.icon);
+      else clear(account.id, "logoSrc");
+    }
+    const name = friendly.trim() || account.name;
+    if (name !== seedName || avatarDraft.initials !== undefined || names[account.id]) {
+      setName(account.id, { name, initials: avatarInitials || nameInitials });
+    }
+    // The avatar colour: a picked one, else the colour from a new full logo.
+    if (avatarDraft.color) {
+      setAvatar(account.id, { ...avatarTile(avatarDraft.color, "solid"), color: avatarDraft.color, custom: true });
+    } else if (wordmark) {
+      const [c] = await logoColors(wordmark);
+      if (c && !savedTile?.custom) {
+        const color = avatarColorFrom(c);
+        setAvatar(account.id, { ...avatarTile(color, "solid"), color, custom: false });
+      }
+    }
+    setAvatarDraft({});
+    setLogoDraft({});
+    setIconError(null);
+    templates.notify("Business profile updated.");
+  };
   const slug = slugFor(account);
   const [street, city, region] = splitAddress(account.meta);
   const locale = LOCALES[city];
@@ -60,7 +174,7 @@ export function BusinessProfilePage({ account }: { account: Account }) {
           <Card
             title="General Information"
             aside={<LocationId id={account.id} />}
-            footer={<CommitButton>Update Information</CommitButton>}
+            footer={<CommitButton onClick={() => void commit()}>Update Information</CommitButton>}
           >
             {/*
               Two assets, one row shape. Ashwin, Nov 6.
@@ -78,9 +192,9 @@ export function BusinessProfilePage({ account }: { account: Account }) {
               hint="Your primary logo, displayed in emails and the classic sidebar."
               spec="Ideal: 350 × 180 px · Max 2.5 MB"
               aspect="wide"
-              {...(account.wordmarkSrc ? { src: account.wordmarkSrc } : {})}
-              onPick={(src) => set(account.id, "wordmarkSrc", src)}
-              onRemove={() => clear(account.id, "wordmarkSrc")}
+              {...(shownWordmark ? { src: shownWordmark } : {})}
+              onPick={(src, fileName) => void pickWordmark(src, fileName)}
+              onRemove={() => setLogoDraft((d) => ({ ...d, wordmark: null }))}
             />
 
             {/* A rule between them, so the two rows are a list and not a stack. */}
@@ -91,11 +205,30 @@ export function BusinessProfilePage({ account }: { account: Account }) {
               hint="A compact version of your logo, displayed in the new sidebar."
               spec="Square · Min 128 × 128 px · Max 2.5 MB"
               aspect="square"
-              {...(account.logoSrc ? { src: account.logoSrc } : {})}
-              fallback={account.logo}
-              onPick={(src) => set(account.id, "logoSrc", src)}
-              onRemove={() => clear(account.id, "logoSrc")}
+              {...(shownIcon ? { src: shownIcon } : {})}
+              fallback={{ ...account.logo, initials: avatarInitials, from: avatarColor, to: avatarColor, brandTile: true }}
+              {...(iconError ? { error: iconError } : {})}
+              onPick={(src) => pickIcon(src)}
+              onRemove={() => {
+                setIconError(null);
+                setLogoDraft((d) => ({ ...d, icon: null }));
+              }}
             />
+
+            {showAvatarEditor ? (
+              <div className="flex flex-col gap-[6px]">
+                <span className="text-[13px] leading-[18px] font-medium text-pg-heading">Avatar</span>
+                <AvatarEditor
+                  initials={avatarInitials}
+                  onInitials={(v) => setAvatarDraft((d) => ({ ...d, initials: v }))}
+                  onResetInitials={() => setAvatarDraft((d) => ({ ...d, initials: nameInitials }))}
+                  color={avatarColor}
+                  logoColors={wordmarkColors}
+                  style="solid"
+                  onColor={(c) => setAvatarDraft((d) => ({ ...d, color: c }))}
+                />
+              </div>
+            ) : null}
 
             <div aria-hidden="true" className="h-px w-full bg-pg-border" />
 
@@ -103,7 +236,8 @@ export function BusinessProfilePage({ account }: { account: Account }) {
               <Field
                 label="Friendly Business Name"
                 className="sm:col-span-2"
-                defaultValue={account.name}
+                value={friendly}
+                onChange={setFriendly}
               />
               <Field
                 label="Legal Business Name"
@@ -326,9 +460,14 @@ function Field({
   required = false,
   type = "text",
   defaultValue,
+  value,
+  onChange,
   placeholder,
   className,
 }: {
+  /** Controlled, for the fields Update Information reads (Nov 23). */
+  value?: string;
+  onChange?: (v: string) => void;
   label: string;
   info?: string;
   /** The sentence under the control, where production puts a rule. */
@@ -344,7 +483,9 @@ function Field({
       <FieldLabel label={label} {...(info ? { info } : {})} required={required} />
       <input
         type={type}
-        defaultValue={defaultValue}
+        {...(value !== undefined
+          ? { value, onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange?.(e.target.value) }
+          : { defaultValue })}
         placeholder={placeholder}
         className={CONTROL}
       />
@@ -443,10 +584,11 @@ function BrandedDomainField({ className }: { className?: string }) {
   );
 }
 
-function CommitButton({ children }: { children: React.ReactNode }) {
+function CommitButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className="motion-tap h-[36px] rounded-[8px] bg-brand px-[16px] text-[14px] leading-none font-medium text-brand-fg active:scale-[0.98]"
     >
       {children}

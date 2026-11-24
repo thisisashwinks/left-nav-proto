@@ -222,7 +222,21 @@ function MergedList({
     mergedPinCap,
     mergedRecentFloor,
     mergedExpandedRows,
+    recentsReach,
   } = useTheme().effective;
+  /*
+   * Pins only, with the history run dropped — see RECENTS_REACHES.
+   *
+   * Cut here rather than in either caller, because both of them build a
+   * recent run and neither of them should have to know whether it will be
+   * drawn: the sub-account's is its product history and the agency's is its
+   * buckets and clients, and "is there a history run at all" is one answer for
+   * both. Everything below then follows for free — the budget has only pins to
+   * ration, the closing heading never appears, and the block already returns
+   * null when both runs are empty, which is what "nothing pinned shows
+   * nothing at all" means.
+   */
+  const pinnedOnly = recentsReach !== "nav";
 
   /*
    * How much of the list is showing, face-local on purpose.
@@ -311,9 +325,11 @@ function MergedList({
   const pins = leaving
     ? [...givenPins.slice(0, heldIndex), leaving, ...givenPins.slice(heldIndex)]
     : givenPins;
-  const recents = leaving
-    ? givenRecents.filter((r) => r.id !== leaving.id)
-    : givenRecents;
+  const recents = pinnedOnly
+    ? []
+    : leaving
+      ? givenRecents.filter((r) => r.id !== leaving.id)
+      : givenRecents;
 
   const budget = expanded
     ? Math.max(mergedExpandedRows, mergedVisibleRows)
@@ -384,7 +400,13 @@ function MergedList({
     >
       {sublabelled ? null : (
         <BlockHeading
-          text={MERGED_HEADING_LABELS[mergedHeading]}
+          /*
+            "Pinned" when there is nothing else in the block. The heading names
+            what is under it, and under the other reaches that is one run of
+            pins — MERGED_HEADINGS is a question about a list holding two kinds
+            of row, and with one kind the answer is just the kind.
+          */
+          text={pinnedOnly ? "Pinned" : MERGED_HEADING_LABELS[mergedHeading]}
           action={viewAll}
         />
       )}

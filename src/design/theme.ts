@@ -861,6 +861,43 @@ export const RECENTS_MODE_LABELS: Record<RecentsMode, string> = {
   merged: "Merged with pinned",
 };
 
+/**
+ * How far "recently visited" reaches, from the whole product down to nothing.
+ *
+ * The question behind it (Ashwin, Nov 24): is a history list worth the rows at
+ * all, when pinning exists? Recents answer "take me back to where I was" and
+ * pins answer "keep this where I can reach it", and the second is the only one
+ * the reader controls — so a nav that offers both is asking everyone to learn
+ * two mechanisms for one job, and giving the louder half of the column to the
+ * one nobody asked for.
+ *
+ *  nav        What ships today: the nav block carries pins AND history, the
+ *             panel opens on Recently visited, and the flyouts keep their
+ *             recent rows. The baseline to compare against.
+ *  elsewhere  The nav block becomes Pinned, and nothing else moves. History
+ *             is still there for the reader who wants it — one click away in
+ *             the panel — it just stops occupying the column by default. The
+ *             conservative version of the change, and the one worth shipping
+ *             if the answer turns out to be "mostly yes".
+ *  none       "Recents removed entirely", read literally. No history block, no
+ *             Recently visited tab, no recent rows anywhere: pins are the only
+ *             shortcut the product has. The honest end of the axis — if the
+ *             reader never misses it here, the feature was carrying no weight.
+ *
+ * `none` is the default (Nov 24), with `navRecentsStart: "starter"` beside it:
+ * the prototype opens on the arrangement being proposed, and `nav` is one
+ * click away for anyone who wants to see what it replaced.
+ */
+export const RECENTS_REACHES = ["nav", "elsewhere", "none"] as const;
+
+export type RecentsReach = (typeof RECENTS_REACHES)[number];
+
+export const RECENTS_REACH_LABELS: Record<RecentsReach, string> = {
+  nav: "Nav, panel, and flyouts",
+  elsewhere: "Panel and flyouts only",
+  none: "Removed everywhere",
+};
+
 /*
  * ---------------------------------------------------------------------------
  * Merged recents — the Cloudflare arrangement
@@ -1055,17 +1092,32 @@ export const MERGED_PIN_ORDER_LABELS: Record<MergedPinOrder, string> = {
  *          pins and a Recents that lists every product it has. Good for
  *          looking at a full list, and nothing like a real first day.
  *
- * `fresh` is the default (Oct 28). A seeded list answered "what does the list
+ *  starter The account ships with three pins and no history: Contacts,
+ *          Calendars, and Conversations — the three places a new sub-account
+ *          actually opens in its first week. Pairs with
+ *          `recentsReach: "elsewhere"` or `"none"`, where `fresh` would open
+ *          on an empty column and show nothing of the Pinned block at all.
+ *          Still no recents beyond the home row: the pins are a starting
+ *          point, not a claimed history.
+ *
+ * `starter` is the default (Nov 24), because the shipped reach is `none`: on
+ * `fresh` there are no pins and no history, so the Pinned block — the whole
+ * point of that arrangement — would not be on screen at all until somebody
+ * pinned something.
+ *
+ * `fresh` was the default from Oct 28 until then, and its reasoning still
+ * holds for the comparison. A seeded list answered "what does the list
  * look like when it is full" on every account at once, including ones nobody
  * had ever opened — so the nav claimed a history the user did not have. There
  * are no pre-pins and no recents beyond the home row. Ashwin, Oct 28.
  */
-export const NAV_RECENTS_STARTS = ["fresh", "seeded"] as const;
+export const NAV_RECENTS_STARTS = ["fresh", "starter", "seeded"] as const;
 
 export type NavRecentsStart = (typeof NAV_RECENTS_STARTS)[number];
 
 export const NAV_RECENTS_START_LABELS: Record<NavRecentsStart, string> = {
   fresh: "First login: 1 recent, no pins",
+  starter: "Starter pins: Contacts, Calendars, Conversations",
   seeded: "Seeded recents and pins",
 };
 
@@ -7230,6 +7282,24 @@ export const RAIL_RULE_ALIGN_LABELS: Record<RailRuleAlign, string> = {
 export const TOP_ALIGN_NUDGE_MIN = 0;
 export const TOP_ALIGN_NUDGE_MAX = 12;
 
+/**
+ * How much air the Launchpad card gets underneath it when nothing follows it.
+ *
+ * The card's own `pb` is 2px, and deliberately: whatever comes next is a
+ * section heading, and headings carry 14px of lead-in — so paying for the gap
+ * twice stacked 28px of nothing under the setup guide.
+ *
+ * With recently-visited pulled out of the column and nothing pinned yet
+ * (RECENTS_REACHES other than `nav`, on the `fresh` start), there is no
+ * heading: the card butts straight onto the first L1 row, which reads as the
+ * card being the list's first item rather than its own band. This is the gap
+ * that buys the heading's lead-in back — applied to the CARD, so hiding the
+ * card takes the gap with it, and spent only while the block beneath is empty.
+ * Ashwin, Nov 24.
+ */
+export const CARD_GAP_MIN = 0;
+export const CARD_GAP_MAX = 24;
+
 export const RAIL_TOOLS_CTAS = ["word", "icon"] as const;
 export type RailToolsCta = (typeof RAIL_TOOLS_CTAS)[number];
 
@@ -7694,6 +7764,8 @@ export interface ThemeState {
   /** What clicking a parent row does. See L2_CLICK_ACTIONS. */
   l2ClickAction: L2ClickAction;
   recentsMode: RecentsMode;
+  /** How far recently-visited reaches, if at all. See RECENTS_REACHES. */
+  recentsReach: RecentsReach;
   /*
    * The merged arrangement's own axes. Read only when `recentsMode` is
    * "merged"; kept on the theme rather than behind it so switching modes back
@@ -7746,6 +7818,8 @@ export interface ThemeState {
   topAlignRailNudge: number;
   /** px the Launchpad card sits below the canvas edge when aligned. */
   topAlignCardNudge: number;
+  /** px under the Launchpad card when no block follows it. See CARD_GAP_MIN. */
+  launchpadCardGap: number;
   /** Which workspace-switch model is live. See SCOPE_MODELS. */
   scopeModel: ScopeModel;
   /** Whether the rail offers a "Hide account rail" row. See SCOPE_MODELS. */
@@ -8724,7 +8798,7 @@ export const DEFAULT_THEME: ThemeState = {
    *
    * Both nav placements stay one click away for the comparison.
    */
-  entryLayout: "header",
+  entryLayout: "top",
   /*
    * Two controls, not one (Oct 5). The merged pill is the more interesting
    * claim and it is still one click away; what settled it is that the claim
@@ -8763,9 +8837,17 @@ export const DEFAULT_THEME: ThemeState = {
   navTourHandsOn: "show",
   navTourMedia: "pick",
   navTourMediaPosition: "top",
-  // Clips only where the gesture is easier shown than described: All
-  // products and its search, and applying a layout to many. Ashwin, Nov 19.
-  navTourClipSteps: ["gs-all-products", "ed-layouts", "accounts-layouts"],
+  /*
+   * Clips only where the gesture is easier shown than described: the search,
+   * and applying a layout to many. Ashwin, Nov 19.
+   *
+   * Was "gs-all-products" until Nov 24, when that step went with Recents —
+   * leaving the Get started flow with a clip on none of its steps. The
+   * search step is what took its place in the flow, and public/tour/gs-find
+   * .mp4 is the clip of that gesture; "ask-ai" has one too, for anyone who
+   * wants the panel shown rather than described.
+   */
+  navTourClipSteps: ["gs-find", "ed-layouts", "accounts-layouts"],
   navTourRestart: "off",
   promoGate: "afterOnboarding",
   navTourWatch: "on",
@@ -8859,7 +8941,7 @@ export const DEFAULT_THEME: ThemeState = {
    * control rather than as a field and a button. The full radius is what
    * keeps them separate objects. See ENTRY_RADII and ENTRY_PAIRS.
    */
-  entryRadius: "pill",
+  entryRadius: "sm",
   quickActionSpot: "search",
   askRadius: "pill",
   editRadius: "pill",
@@ -9177,6 +9259,13 @@ export const DEFAULT_THEME: ThemeState = {
   // separate pinned bar. The other three arrangements stay one click away.
   recentsMode: "merged",
   /*
+   * Recents gone, pins in its place (Ashwin, Nov 24). The prototype now opens
+   * on the arrangement being proposed rather than on the one it replaces —
+   * `nav` is one click away for the comparison, which is the right way round
+   * once a direction has been chosen. See RECENTS_REACHES.
+   */
+  recentsReach: "none",
+  /*
    * The merge's defaults are the recommendation, not a neutral position: the
    * capsule goes, the block never folds, pins wear a glyph and a rule, rows
    * carry their breadcrumb, and a new pin stays where the row already was.
@@ -9200,7 +9289,13 @@ export const DEFAULT_THEME: ThemeState = {
   mergedPinOrder: "arranged",
   mergedHeading: "recents",
   // The first login, not the demo: one recent, no pins. See NAV_RECENTS_STARTS.
-  navRecentsStart: "fresh",
+  /*
+   * Three pins, no history — the opening state that goes with
+   * `recentsReach: "none"`. On `fresh` the column would open with no Pinned
+   * block at all, so the thing the arrangement is about would be invisible
+   * until someone pinned something. See NAV_RECENTS_STARTS.
+   */
+  navRecentsStart: "starter",
   /*
    * Off in the merged panel.
    *
@@ -9264,6 +9359,11 @@ export const DEFAULT_THEME: ThemeState = {
   topAlignCard: true,
   topAlignRailNudge: 0,
   topAlignCardNudge: 0,
+  /*
+   * 12px — a heading's 14px lead-in, near enough, for the case that has no
+   * heading. See CARD_GAP_MIN.
+   */
+  launchpadCardGap: 12,
   // The rail is the recommendation, so the prototype opens on it. Model A is
   // one click away for the comparison.
   scopeModel: "rail",

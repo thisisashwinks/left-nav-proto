@@ -61,6 +61,7 @@ import {
   type BrandingTheme,
 } from "@/design/branding";
 import { useAnchored } from "@/lib/use-anchored";
+import { askThemeScope, keepThemeFor, useThemeScopeAsk, type ThemeScope } from "@/components/branding/theme-scope";
 import { cn } from "@/lib/utils";
 
 const PANEL_WIDTH = 320;
@@ -168,6 +169,19 @@ export function useThemeDoor(scope: BrandingScope) {
     );
   };
 
+  /**
+   * Agency-wide save for all sub-accounts, or only the picked ones (Nov 24):
+   * the rest keep the theme they had when this edit began.
+   */
+  const saveScoped = (scope: ThemeScope, message?: string) => {
+    if (scope !== "all") {
+      writeState((s) => keepThemeFor(s, scope, snap));
+      const n = scope.length;
+      return save(message ?? `Theme applied to your agency and ${n.toLocaleString("en-US")} sub-account${n === 1 ? "" : "s"}.`);
+    }
+    save(message);
+  };
+
   /** Layout mode, sub-account on a layout: everyone on it takes the theme. */
   const saveToLayout = () => {
     if (!layout || !accountId) return;
@@ -184,6 +198,7 @@ export function useThemeDoor(scope: BrandingScope) {
     write,
     revert,
     save,
+    saveScoped,
     saveToLayout,
     changed: touched,
     agencyWide,
@@ -581,6 +596,7 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
   const field = { value: door.value, onChange: door.write, disabled };
   const agencyWide = proto.saveTarget === "agency";
   const [confirming, setConfirming] = React.useState(false);
+  const scopeAsk = useThemeScopeAsk() && agencyWide;
 
   const latest = React.useRef(door);
   React.useEffect(() => {
@@ -620,7 +636,19 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
         }
         dirty={door.changed}
         onCancel={door.revert}
-        onSave={canEdit ? () => (proto.applyConfirm ? setConfirming(true) : apply()) : undefined}
+        onSave={
+          canEdit
+            ? () => {
+                // "All or selected" is itself the confirmation (Nov 24).
+                if (scopeAsk) {
+                  void askThemeScope().then((r) => {
+                    if (r) door.saveScoped(r, r === "all" ? "Theme applied successfully." : undefined);
+                  });
+                } else if (proto.applyConfirm) setConfirming(true);
+                else apply();
+              }
+            : undefined
+        }
         saveLabel="Save and apply"
         footerStart={
           <button
@@ -744,6 +772,7 @@ export function EditPalette({
   const door = useThemeDoor(scope);
   const { ref, top, left } = useAnchored(anchor, PALETTE_WIDTH, 6);
   const agencyWide = proto.saveTarget === "agency";
+  const scopeAsk = useThemeScopeAsk();
 
   // Every write is part of the open edit session: the first one records what
   // Discard goes back to.
@@ -796,7 +825,9 @@ export function EditPalette({
             {session ? (
               <p className="text-[13px] leading-[18px] text-pg-muted">
                 {agencyWide
-                  ? "Saved with your navigation changes. Applies to your agency and all its sub-accounts."
+                  ? scopeAsk
+                    ? "Saved with your navigation changes. You'll choose which sub-accounts get it when you save."
+                    : "Saved with your navigation changes. Applies to your agency and all its sub-accounts."
                   : "Saved with your navigation changes, into the layout you save."}
               </p>
             ) : (

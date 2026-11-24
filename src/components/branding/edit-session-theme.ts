@@ -41,6 +41,11 @@ export function noteThemeEdit(key: ThemeSessionKey, original: unknown) {
   emit();
 }
 
+/** The open session, if any — read by the edit Save to scope the theme (Nov 24). */
+export function peekThemeSession(): { key: ThemeSessionKey; original: unknown } | null {
+  return session;
+}
+
 /** Called by NavLayoutProvider when the edit session ends. */
 export function endThemeSession(kind: "save" | "discard") {
   if (!session) return;

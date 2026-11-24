@@ -6179,6 +6179,8 @@ function RailRow({
           // states ticked-ness, and "current" beside it reads as a second
           // checked state.
           aria-current={selected && tick === undefined ? "true" : undefined}
+          // The agency's square mark (Nov 24): its selection is square too.
+          {...(squareMark ? { "data-rail-square": "" } : {})}
           {...(tick === undefined
             ? {}
             : { role: "checkbox", "aria-checked": tick })}
@@ -6389,6 +6391,7 @@ function RailRow({
           */}
           <span
             aria-hidden={undefined}
+            data-rail-mark=""
             style={zoom === 1 ? undefined : { transform: `scale(${zoom})` }}
             className={cn(
               "flex shrink-0 origin-center transition-[transform,filter] duration-[var(--dur-dock)] ease-[var(--ease-out)]",
@@ -6447,8 +6450,9 @@ function RailRow({
                 the agency-only flag already to hand. Ashwin, Oct 14.
               */
               {...(railAvatars === "marks" || coverMark ||
-              // An agency that uploaded its square icon shows it (Nov 23).
-              (account.id === "agency" && account.logoSrc)
+              // An uploaded square icon shows, agency or sub-account (Nov 24);
+              // "Sidebar icon shows: Avatar" strips it upstream (use-accounts).
+              (account.logoUploaded && account.logoSrc)
                 ? {}
                 : {
                     // A name read off the logo carries its own initials (Nov 23).
@@ -6468,7 +6472,11 @@ function RailRow({
                 its own width. Ashwin, Oct 16.
               */
               radius={
-                squareMark
+                // An uploaded sub-account icon fills a circle (Nov 24); the
+                // agency's mark stays square (Ashwin, Nov 24).
+                account.logoUploaded && !squareMark
+                  ? 999
+                  : squareMark
                   ? AGENCY_SQUARE_RADIUS
                   : squircle
                     ? Math.round(size * SQUIRCLE_RATIO)

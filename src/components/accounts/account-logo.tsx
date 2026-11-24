@@ -62,6 +62,11 @@ export interface AccountLogoSpec {
    * logo or picked in onboarding — so initials never wash it grey.
    */
   brandTile?: boolean;
+  /**
+   * The uploaded square icon fills the whole avatar (Nov 24) — no white tile
+   * around it — so it reads as a circle like every other avatar.
+   */
+  coverSrc?: boolean;
 }
 
 /** All marks are drawn in a 32x32 box and scaled by the caller. */
@@ -159,11 +164,12 @@ export function AccountLogo({
   size,
   radius,
   src,
-  fit = "contain",
+  fit: fitProp,
   initials,
   tint = false,
   className,
 }: AccountLogoProps) {
+  const fit = fitProp ?? (logo.coverSrc ? "cover" : "contain");
   /*
    * The rail's "initials only" arrangement, handed down. See RAIL_AVATARS.
    *

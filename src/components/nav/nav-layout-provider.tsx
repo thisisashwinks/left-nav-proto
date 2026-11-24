@@ -5,8 +5,8 @@ import type { LucideIcon } from "lucide-react";
 import { INITIAL_ACCOUNT_ID } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
 import { endThemeSession } from "@/components/branding/edit-session-theme";
-import { DEFAULT_THEME } from "@/design/theme";
-import { freshStart, navProfileFor } from "./account-nav-profiles";
+import { DEFAULT_THEME, type NavRecentsStart } from "@/design/theme";
+import { freshStart, navProfileFor, starterStart } from "./account-nav-profiles";
 import {
   AGENCY_SCOPE_ID,
   useNavProfiles,
@@ -731,17 +731,19 @@ function reducer(store: Store, action: Action): Store {
 /**
  * The layout an account wakes up in, under both seed axes.
  *
- * `plain` picks the arrangement (see `navProfileFor`); `fresh` empties the
- * pins and starts Recents at the home row (see `freshStart`). The agency's
- * own key is left alone under both — its pins are agency-layout's, not this.
+ * `plain` picks the arrangement (see `navProfileFor`); `start` decides what it
+ * holds on a first login — nothing pinned, three starter pins, or the demo
+ * seed (see NAV_RECENTS_STARTS). The agency's own key is left alone under all
+ * three: its pins are agency-layout's, not this.
  */
 function seedFor(
   accountId: string,
   plain: boolean,
-  fresh: boolean,
+  start: NavRecentsStart,
 ): NavLayoutState {
   const seed = navProfileFor(accountId, plain ? "default" : "own");
-  return fresh && accountId !== AGENCY_SCOPE_ID ? freshStart(seed) : seed;
+  if (start === "seeded" || accountId === AGENCY_SCOPE_ID) return seed;
+  return start === "starter" ? starterStart(seed) : freshStart(seed);
 }
 
 /** How much history an account keeps. More than any surface draws. */
@@ -1056,8 +1058,8 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
    */
   const { layoutModel, templateAccountSpread, getAppPlacement, navRecentsStart } =
     useTheme().effective;
-  /** Whether accounts wake up on their first login. See NAV_RECENTS_STARTS. */
-  const fresh = navRecentsStart === "fresh";
+  /** What accounts wake up holding on a first login. See NAV_RECENTS_STARTS. */
+  const start = navRecentsStart;
   /*
    * Which chrome rows count as L1 rows right now.
    *
@@ -1090,11 +1092,11 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
    * a BURST in one tick, and that is unaffected.
    */
   const profileOf = React.useCallback(
-    (accountId: string) => seedFor(accountId, plain, fresh),
-    [plain, fresh],
+    (accountId: string) => seedFor(accountId, plain, start),
+    [plain, start],
   );
-  /** What `fresh` was last time, so the reset fires on the change alone. */
-  const freshRef = React.useRef(fresh);
+  /** What `start` was last time, so the reset fires on the change alone. */
+  const startRef = React.useRef(start);
   /** What `plain` was last time, so the re-seed fires on the change alone. */
   const plainRef = React.useRef(plain);
   const [store, dispatch] = React.useReducer(reducer, {
@@ -1109,7 +1111,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       // frame of a layout the model does not allow, corrected on mount.
       DEFAULT_THEME.layoutModel === "one-template" &&
         !DEFAULT_THEME.templateAccountSpread,
-      DEFAULT_THEME.navRecentsStart === "fresh",
+      DEFAULT_THEME.navRecentsStart,
     ),
     undoOffer: null,
     nextOfferId: 1,
@@ -1213,9 +1215,9 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     setProfiles({});
     dispatch({
       type: "load",
-      layout: seedFor(activeIdRef.current ?? INITIAL_ACCOUNT_ID, plain, fresh),
+      layout: seedFor(activeIdRef.current ?? INITIAL_ACCOUNT_ID, plain, start),
     });
-    // `fresh` is read, not watched: its own reset is the effect below.
+    // `start` is read, not watched: its own reset is the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plain]);
 
@@ -1229,11 +1231,11 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
    * to them. Ashwin, Oct 28.
    */
   React.useEffect(() => {
-    if (freshRef.current === fresh) return;
-    freshRef.current = fresh;
+    if (startRef.current === start) return;
+    startRef.current = start;
     const restart = (accountId: string, layout: NavLayoutState) => {
-      const start = seedFor(accountId, plain, fresh);
-      return { ...layout, pinned: start.pinned, recents: start.recents };
+      const seeded = seedFor(accountId, plain, start);
+      return { ...layout, pinned: seeded.pinned, recents: seeded.recents };
     };
     setProfiles((prev) =>
       Object.fromEntries(
@@ -1249,7 +1251,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     });
     // `plain` is read, not watched: its own re-seed is the effect above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fresh]);
+  }, [start]);
 
   const recordVisit = React.useCallback(
     (id: string) => dispatch({ type: "visit", id }),

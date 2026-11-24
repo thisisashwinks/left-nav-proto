@@ -34,7 +34,8 @@ const INSET = 8;
 export function useEditSpeedDial(): boolean {
   const { proto } = useBranding();
   const { visible } = useBrandingAccess();
-  return visible && proto.editEntry === "speed-dial";
+  // Combined (Nov 24): one Edit button, straight into edit mode.
+  return visible && proto.editEntry === "speed-dial" && proto.layoutTheme !== "combined";
 }
 
 export function EditSpeedDial({

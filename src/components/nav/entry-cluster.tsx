@@ -100,8 +100,13 @@ export function EntryCluster({
   return (
     <div
       className={cn(
-        "flex w-full shrink-0 items-center gap-[8px] px-[12px]",
-        entryLayout === "top" ? "pb-[12px]" : "pb-[22px]",
+        "flex w-full shrink-0 items-center gap-[8px]",
+        // Under the logo, on the same inset as the Launchpad card and rows
+        // below it, so the field's edges line up with theirs. Ashwin, Nov 24.
+        entryLayout === "top" ? "px-[var(--t-nav-pad,10px)] pb-[12px]" : "px-[12px] pb-[22px]",
+        // And a step darker at the edge there, for the field and the button
+        // beside it. See --nav-entry-line.
+        entryLayout === "top" && "[--entry-line:var(--nav-entry-line)]",
       )}
     >
       <EntryPill
@@ -135,7 +140,7 @@ export function EntryCluster({
             aria-label="Quick actions"
             onClick={onQuickActions}
             className={cn(
-              "motion-tap flex size-[32px] shrink-0 items-center justify-center text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg active:scale-95",
+              "motion-tap flex size-[32px] shrink-0 items-center justify-center text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--entry-line,var(--nav-divider))] hover:bg-nav-hover hover:text-nav-fg active:scale-95",
               entryRadius === "sm" ? "rounded-[8px]" : "rounded-full",
             )}
           >
@@ -1447,7 +1452,7 @@ export function EntryPill({
             entryRadius === "sm" ? "rounded-[8px]" : "rounded-full",
             header
               ? "shadow-[inset_0_0_0_1px_var(--hdr-entry-border)] hover:bg-hdr-chip"
-              : "shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover",
+              : "shadow-[inset_0_0_0_1px_var(--entry-line,var(--nav-divider))] hover:bg-nav-hover",
             /*
               In the nav the pair has a column to fill, so the field takes
               what the button leaves. In the bar the slot hugs its contents
@@ -1623,13 +1628,13 @@ export function EntryPill({
               "bg-transparent active:scale-[0.98] motion-press",
               header
                 ? "shadow-[inset_0_0_0_1px_var(--hdr-entry-border)] hover:bg-hdr-chip"
-                : "shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover",
+                : "shadow-[inset_0_0_0_1px_var(--entry-line,var(--nav-divider))] hover:bg-nav-hover",
             ),
           searchEnabled &&
             (header
               ? // Its own token, not the bar's hairline: see --hdr-entry-border.
                 "shadow-[inset_0_0_0_1px_var(--hdr-entry-border)]"
-              : "shadow-[inset_0_0_0_1px_var(--nav-divider)]"),
+              : "shadow-[inset_0_0_0_1px_var(--entry-line,var(--nav-divider))]"),
           // Both stay live while editing (Aug 25).
           //
           // They were locked out on the grounds that they are not part of the

@@ -37,6 +37,14 @@ export interface Account {
    */
   wordmarkSrc?: string;
   /**
+   * True when `wordmarkSrc` was uploaded this session rather than seeded
+   * (Nov 23). Sub-account headers show the name as text unless the account
+   * uploaded its own full logo.
+   */
+  wordmarkUploaded?: boolean;
+  /** True when `logoSrc` was uploaded this session (Nov 24). */
+  logoUploaded?: boolean;
+  /**
    * The tenant's real brand colour, once they have uploaded a logo to take it
    * from. Seeds the workspace accent under `[data-accent="account"]`.
    *

@@ -16,6 +16,7 @@ import {
   type L3Disclosure,
   type L2ClickAction,
   type RecentsMode,
+  type RecentsReach,
   type MergedPinScope,
   type MergedPinMark,
   type MergedOverflow,
@@ -274,6 +275,7 @@ export type AccountTheme = Partial<
     | "l3Disclosure"
     | "l2ClickAction"
     | "recentsMode"
+    | "recentsReach"
     | "mergedPinScope"
     | "mergedPinMark"
     | "mergedOverflow"
@@ -401,6 +403,7 @@ interface ThemeContextValue extends ThemeState {
   setTopAlignCard: (on: boolean) => void;
   setTopAlignRailNudge: (px: number) => void;
   setTopAlignCardNudge: (px: number) => void;
+  setLaunchpadCardGap: (px: number) => void;
   setRailActiveChrome: (v: RailActiveChrome) => void;
   setRailActiveSpot: (v: RailActiveSpot) => void;
   setRailGuestSpot: (v: RailGuestSpot) => void;
@@ -517,6 +520,7 @@ interface ThemeContextValue extends ThemeState {
   setL3Disclosure: (disclosure: L3Disclosure) => void;
   setL2ClickAction: (action: L2ClickAction) => void;
   setRecentsMode: (mode: RecentsMode) => void;
+  setRecentsReach: (reach: RecentsReach) => void;
   setMergedPinScope: (scope: MergedPinScope) => void;
   setMergedPinMark: (mark: MergedPinMark) => void;
   setMergedOverflow: (overflow: MergedOverflow) => void;
@@ -977,6 +981,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, topAlignRailNudge })),
       setTopAlignCardNudge: (topAlignCardNudge) =>
         setState((s) => ({ ...s, topAlignCardNudge })),
+      setLaunchpadCardGap: (launchpadCardGap) =>
+        setState((s) => ({ ...s, launchpadCardGap })),
       setRailActiveChrome: (railActiveChrome) =>
         setState((s) => ({ ...s, railActiveChrome })),
       setRailActiveSpot: (railActiveSpot) =>
@@ -1190,6 +1196,8 @@ export function ThemeProvider({
       setL2ClickAction: (l2ClickAction) =>
         setState((s) => ({ ...s, l2ClickAction })),
       setRecentsMode: (recentsMode) => setState((s) => ({ ...s, recentsMode })),
+      setRecentsReach: (recentsReach) =>
+        setState((s) => ({ ...s, recentsReach })),
       setMergedPinScope: (mergedPinScope) =>
         setState((s) => ({ ...s, mergedPinScope })),
       setMergedPinMark: (mergedPinMark) =>

@@ -666,6 +666,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     pinnedShortcuts,
     pinnedShortcutEdit,
     recentsMode,
+    recentsReach,
     mergedPinScope,
     autoCollapse,
     // Per-account like the rest of the look — a tenant can ship spotlight
@@ -1416,7 +1417,13 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     recentsBudgetFor(density),
     // Merged mode draws its own list and the nav strips the authored one, so
     // the inline budget has nothing left to ration.
-    recentsMode === "merged" || recentsMode === "flyout-only"
+    // Or when recently-visited has been pulled out of the column altogether —
+    // see RECENTS_REACHES. Zero rather than a strip, so `elsewhere` keeps the
+    // door: trimRecents renames the More row to "Recent" and the history stays
+    // one click away. `none` strips the block in left-nav.
+    recentsReach !== "nav" ||
+    recentsMode === "merged" ||
+    recentsMode === "flyout-only"
       ? 0
       : recentsMode === "fixed-three"
         ? 3

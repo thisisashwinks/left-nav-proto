@@ -170,6 +170,7 @@ export function PinnedLauncher({
     panelRecentHeading,
     productDirectoryRow,
     recentsPanelLayout,
+    recentsReach,
     getAppPlacement,
     navArrangement,
     treeRecentsAllProducts,
@@ -453,7 +454,23 @@ export function PinnedLauncher({
    * RECENTS_PANEL_LAYOUTS — this is the only place the axis is read, and these
    * three booleans are what the rest of the file asks instead of asking it.
    */
-  const bothHalves = showKept && showCatalogue && !agencyScope;
+  /*
+   * Whether this panel has a history to show at all. See RECENTS_REACHES.
+   *
+   * `none` takes recently-visited out of the product, and this panel is the
+   * one place it is shown full size — so the tab goes with it. Pinned stays:
+   * the panel is still where pins are arranged, and the half this axis
+   * removes is the history, not the shortcuts.
+   */
+  const showHistory = recentsReach !== "none";
+  /*
+   * `showHistory` folded in here rather than guarded at each tab, because
+   * "both halves" is exactly the question the switcher answers: with no
+   * history there is one half, the body falls back to its single-column
+   * arrangement — Pinned, then All products, then the tree — and nothing
+   * downstream has to know why.
+   */
+  const bothHalves = showKept && showCatalogue && !agencyScope && showHistory;
   const stacked = bothHalves && recentsPanelLayout === "stacked";
   const tabbed = bothHalves && !stacked;
   /*
@@ -1087,7 +1104,10 @@ export function PinnedLauncher({
       )
     : [];
 
-  const recentIds = mergedPanel ? recentIdsFor(state).slice(0, PANEL_RECENT_ROWS) : [];
+  const recentIds =
+    mergedPanel && showHistory
+      ? recentIdsFor(state).slice(0, PANEL_RECENT_ROWS)
+      : [];
 
   /*
    * Search only reaches what this panel holds.

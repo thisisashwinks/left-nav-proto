@@ -157,7 +157,13 @@ export function BrandAssetRow({
   onPick,
   onRemove,
   error,
+  compact = false,
 }: {
+  /**
+   * One line, never wrapped (Nov 24): smaller preview and 36px buttons, for
+   * a modal column. Both rows keep Replace / Remove beside the copy.
+   */
+  compact?: boolean;
   label: string;
   /** Shown under the spec when an upload is refused (Nov 23). */
   error?: string;
@@ -195,7 +201,12 @@ export function BrandAssetRow({
       question that matters — does this line fit here — so the buttons drop
       under the text in a column and stay on the line at full width.
     */
-    <div className="flex w-full flex-wrap items-center gap-x-[20px] gap-y-[12px]">
+    <div
+      className={cn(
+        "flex w-full items-center",
+        compact ? "flex-nowrap gap-[14px]" : "flex-wrap gap-x-[20px] gap-y-[12px]",
+      )}
+    >
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -209,7 +220,9 @@ export function BrandAssetRow({
         }}
         className={cn(
           "flex shrink-0 items-center justify-center overflow-hidden rounded-[10px]",
-          aspect === "wide" ? "h-[100px] w-[156px]" : "size-[100px]",
+          compact
+            ? aspect === "wide" ? "h-[64px] w-[112px]" : "size-[64px]"
+            : aspect === "wide" ? "h-[100px] w-[156px]" : "size-[100px]",
           /*
             Dashed while empty, solid once there is something in it.
             
@@ -232,14 +245,14 @@ export function BrandAssetRow({
             className="max-h-full max-w-full object-contain p-[10px]"
           />
         ) : aspect === "square" && fallback ? (
-          <AccountLogo logo={fallback} size={60} radius={14} />
+          <AccountLogo logo={fallback} size={compact ? 40 : 60} radius={compact ? 10 : 14} />
         ) : (
           <ImageUp size={24} aria-hidden="true" className="text-pg-faint" />
         )}
       </div>
 
       {/* A floor, so the line wraps instead of crushing the copy. */}
-      <div className="flex min-w-[180px] flex-1 flex-col gap-[2px]">
+      <div className={cn("flex flex-1 flex-col gap-[2px]", compact ? "min-w-0" : "min-w-[180px]")}>
         <span className="text-[14px] leading-[20px] font-semibold text-pg-heading">
           {label}
         </span>
@@ -261,7 +274,10 @@ export function BrandAssetRow({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="motion-tap flex h-[40px] items-center rounded-[8px] px-[18px] text-[14px] leading-none font-semibold text-brand shadow-[inset_0_0_0_1px_var(--brand)] hover:bg-brand-soft"
+          className={cn(
+            "motion-tap flex items-center rounded-[8px] text-[14px] leading-none font-semibold text-brand shadow-[inset_0_0_0_1px_var(--brand)] hover:bg-brand-soft",
+            compact ? "h-[36px] px-[14px]" : "h-[40px] px-[18px]",
+          )}
         >
           {src ? "Replace" : "Upload"}
         </button>
@@ -270,7 +286,10 @@ export function BrandAssetRow({
           onClick={onRemove}
           disabled={!src}
           aria-label={`Remove ${label}`}
-          className="motion-tap flex h-[40px] items-center rounded-[8px] px-[18px] text-[14px] leading-none font-semibold text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg-bg disabled:cursor-not-allowed disabled:opacity-45"
+          className={cn(
+            "motion-tap flex items-center rounded-[8px] text-[14px] leading-none font-semibold text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg disabled:cursor-not-allowed disabled:opacity-45",
+            compact ? "h-[36px] px-[14px]" : "h-[40px] px-[18px]",
+          )}
         >
           Remove
         </button>

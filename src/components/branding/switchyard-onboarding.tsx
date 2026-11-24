@@ -49,6 +49,7 @@ import { AccountLogo } from "@/components/accounts/account-logo";
 import { useLabs } from "@/components/settings/labs-state";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import {
+  ThemeEditor,
   ThemePicker,
   useAgencyLogoColors,
   useLogoThemeSuggestions,
@@ -68,9 +69,19 @@ import {
   BRANDING_PRESETS,
   deriveChrome,
   themeFromPreset,
+  type AvatarStyle,
   type BrandingTheme,
 } from "@/design/branding";
 import { cn } from "@/lib/utils";
+import {
+  ALL_SUB_ACCOUNT_IDS,
+  scopeApplyLabel,
+  scopeOf,
+  SubAccountPicker,
+  ThemeScopeHost,
+  useThemeScopeAsk,
+} from "@/components/branding/theme-scope";
+import { BrandAssetRow } from "@/components/settings/logo-upload-field";
 import { brandInitials, logoName, trimLogo } from "@/lib/logo-trim";
 
 const AGENCY_ID = agency.id;
@@ -84,6 +95,11 @@ const STEPS = [
   { title: "Logos", hint: "Full logo and icon" },
   { title: "Theme", hint: "Your sidebar colors" },
 ] as const;
+/** The stepper also lists the closing screen, so it matches the 4 screens. */
+/** With "Theme applies to: Ask", picking sub-accounts is a step of its own (Nov 24). */
+const SCOPE_STEP = { title: "Sub-accounts", hint: "Who gets the theme" } as const;
+const DONE_STEP = { title: "All set", hint: "Explore the new navigation" } as const;
+type StepInfo = { title: string; hint: string };
 
 /** Same rule as the rail's (account-rail initialsFor), kept local to avoid the import. */
 function initialsFor(name: string): string {
@@ -134,9 +150,22 @@ export function SwitchyardOnboardingHost() {
     was.current = agencyOn;
   }, [agencyOn, agencyUser, proto.onboarding, proto.access, setOnboardingOpen]);
 
+  /*
+   * "Agency's logos before: Full logo only" — the agency already had it, so
+   * it is there from the start, not added when onboarding reaches Logos
+   * (Ashwin, Nov 24). Default: no logos.
+   */
+  const brand = useBrand();
+  const hasWordmark = Boolean(brand.uploads[AGENCY_ID]?.wordmarkSrc);
+  React.useEffect(() => {
+    if (proto.priorLogos === "full" && !hasWordmark) void setAgencyFullLogo(brand, SAMPLE_FULL_LOGO);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proto.priorLogos]);
+
   return (
     <>
       <AvatarFromLogo />
+      <ThemeScopeHost />
       {onboardingOpen && agencyUser ? <OnboardingModal onClose={() => setOnboardingOpen(false)} /> : null}
     </>
   );
@@ -179,6 +208,11 @@ function AvatarFromLogo() {
 /* ---------------------------------------------------------------------- */
 
 interface Flow {
+  /** The working steps (Welcome, Logos, Theme, and Sub-accounts when asked). */
+  steps: readonly StepInfo[];
+  /** Sub-accounts ticked for the theme, when the Sub-accounts step is on. */
+  picked: string[];
+  setPicked: (ids: string[]) => void;
   step: number;
   done: boolean;
   theme: BrandingTheme;
@@ -196,16 +230,9 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
   const door = useThemeDoor(scope);
   const [step, setStep] = React.useState(0);
   const [done, setDone] = React.useState(false);
-
-  // An existing agency arrives with the full logo it already uploaded.
-  const seeded = React.useRef(false);
-  React.useEffect(() => {
-    if (seeded.current) return;
-    seeded.current = true;
-    if (proto.priorLogos === "full" && !brand.uploads[AGENCY_ID]?.wordmarkSrc) {
-      void setAgencyFullLogo(brand, SAMPLE_FULL_LOGO);
-    }
-  }, [proto.priorLogos, brand]);
+  const scopeAsk = useThemeScopeAsk();
+  const steps: readonly StepInfo[] = scopeAsk ? [...STEPS, SCOPE_STEP] : STEPS;
+  const [picked, setPicked] = React.useState<string[]>(() => [...ALL_SUB_ACCOUNT_IDS]);
 
   const { revert, changed } = door;
   const later = React.useCallback(() => {
@@ -215,12 +242,22 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
   useEscape(later);
 
   const flow: Flow = {
+    steps,
+    picked,
+    setPicked,
     step,
     done,
     theme: door.value,
     setTheme: door.write,
     next: () => {
-      if (step < STEPS.length - 1) return setStep(step + 1);
+      if (step < steps.length - 1) return setStep(step + 1);
+      if (scopeAsk) {
+        // Picked on the Sub-accounts step, in this same window.
+        const r = scopeOf(picked);
+        door.saveScoped(r, r === "all" ? "You're all set. Your logo and theme are live." : undefined);
+        setDone(true);
+        return;
+      }
       door.save("You're all set. Your logo and theme are live.");
       setDone(true);
     },
@@ -252,7 +289,7 @@ function Frame({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Set up Switchyard"
+        aria-label="Set up your new navigation"
         style={{
           width,
           ...(height ? { height: `min(${height}px, calc(100dvh - 32px))` } : { maxHeight: "calc(100dvh - 32px)" }),
@@ -260,7 +297,7 @@ function Frame({
           boxShadow: frame.shadow,
         }}
         className={cn(
-          "motion-panel-in relative flex max-w-full overflow-hidden rounded-[12px] border border-solid bg-pg-surface",
+          "motion-panel-in relative flex max-w-full overflow-hidden rounded-[8px] border border-solid bg-pg-surface",
           className,
         )}
       >
@@ -287,115 +324,111 @@ function Frame({
 /* ---------------------------------------------------------------------- */
 
 const STEP_COPY = [
-  { title: "Welcome to Switchyard", sub: "Make the new sidebar yours in about 2 minutes." },
+  { title: "Welcome", sub: "" },
   { title: "Add your logos", sub: "They show in your sidebar right away." },
-  { title: "Pick a theme", sub: "Each theme previews live, here and behind this window." },
+  { title: "Pick a theme", sub: "Each theme previews live behind this window." },
+  { title: "Choose sub-accounts", sub: "All are selected. Untick any that should keep their current theme." },
 ];
 
+/** The footer's primary label for where the flow is. */
+function primaryLabel(flow: Flow): string {
+  if (flow.step === 0) return "Get started";
+  if (flow.step < flow.steps.length - 1) return "Continue";
+  return flow.steps.length > STEPS.length ? scopeApplyLabel(flow.picked.length) : "Finish setup";
+}
+
+/**
+ * The HighRise modal, two columns (Nov 24): a 16px title row with Back (as
+ * an icon) and ✕, a quiet step list on a neutral column, the step on the
+ * right, and a footer with just Skip for now and the primary action.
+ */
 function StepperLook({ flow }: { flow: Flow }) {
   const { step, done } = flow;
+  const at = done ? flow.steps.length : step;
+  const stepper = [...flow.steps, DONE_STEP];
   return (
-    <Frame width={880} height={620}>
-      {/* Left: steps + live preview */}
-      <aside className="flex w-[248px] shrink-0 flex-col gap-[20px] bg-[linear-gradient(170deg,var(--hr-primary-50),var(--pg-bg)_70%)] p-[20px] shadow-[inset_-1px_0_0_0_var(--pg-border)]">
-        <div className="flex items-center gap-[8px]">
-          <span className="flex size-[28px] items-center justify-center rounded-[8px] bg-[var(--hr-primary-600)] text-white">
-            <Sparkles size={15} aria-hidden="true" />
-          </span>
-          <span className="text-[14px] leading-[20px] font-semibold text-pg-heading">Set up Switchyard</span>
-        </div>
-        <ol className="flex flex-col">
-          {STEPS.map((s, i) => {
-            const state = done || i < step ? "done" : i === step ? "now" : "next";
-            return (
-              <li key={s.title} className="relative flex gap-[10px] pb-[16px] last:pb-0">
-                {i < STEPS.length - 1 ? (
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "absolute top-[26px] bottom-[2px] left-[11px] w-[2px] rounded-full transition-colors",
-                      state === "done" ? "bg-[var(--hr-primary-600)]" : "bg-[var(--pg-border)]",
-                    )}
-                  />
-                ) : null}
-                <span
-                  className={cn(
-                    "relative flex size-[24px] shrink-0 items-center justify-center rounded-full text-[12px] font-semibold transition-colors",
-                    state === "done" && "bg-[var(--hr-primary-600)] text-white",
-                    state === "now" && "bg-pg-surface text-[var(--hr-primary-600)] shadow-[inset_0_0_0_2px_var(--hr-primary-600)]",
-                    state === "next" && "bg-pg-surface text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border-strong)]",
-                  )}
-                >
-                  {state === "done" ? <Check size={13} strokeWidth={3} aria-hidden="true" /> : i + 1}
-                </span>
-                <span className="flex min-w-0 flex-col pt-[2px]">
-                  <span className={cn("text-[13px] leading-[18px] font-medium", state === "next" ? "text-pg-muted" : "text-pg-heading")}>
-                    {s.title}
-                  </span>
-                  <span className="text-[12px] leading-[16px] text-pg-muted">{s.hint}</span>
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-        <div className="mt-auto flex flex-col gap-[6px] text-[12px] leading-[16px] text-pg-muted">
-          <span className="flex items-center gap-[6px]">
-            <Clock size={12} aria-hidden="true" />
-            About 2 minutes
-          </span>
-          <span className="flex items-center gap-[6px]">
-            <Building2 size={12} aria-hidden="true" />
-            Applies to all {SUBS} sub-accounts
-          </span>
-        </div>
-      </aside>
+    <Frame width={860} height={600} className="flex-col">
+      <header className="flex shrink-0 items-center gap-[6px] px-[16px] pt-[12px] pb-[12px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
+        {!done && step > 0 ? (
+          <button
+            type="button"
+            aria-label="Back"
+            title="Back"
+            onClick={flow.back}
+            className="motion-tap -ml-[4px] flex size-[28px] shrink-0 items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg hover:text-pg-heading"
+          >
+            <ArrowLeft size={16} aria-hidden="true" />
+          </button>
+        ) : null}
+        <h2 className="min-w-0 flex-1 text-[16px] leading-[22px] font-semibold text-pg-heading">
+          Set up your new navigation
+        </h2>
+        <CloseButton onClick={done ? flow.close : flow.later} />
+      </header>
 
-      {/* Right: the step */}
-      <section className="flex min-w-0 flex-1 flex-col">
-        {done ? (
-          <DoneView flow={flow} />
-        ) : step === 0 ? (
-          <>
-            <div className="ob-in relative min-h-0 flex-1 overflow-y-auto">
-              <div className="absolute top-[12px] right-[12px] z-[1]">
-                <CloseButton onClick={flow.later} />
+      <div className="flex min-h-0 flex-1">
+        {/* Steps — neutral, ink only where you are */}
+        <aside className="flex w-[208px] shrink-0 flex-col bg-pg px-[16px] py-[20px] shadow-[inset_-1px_0_0_0_var(--pg-border)]">
+          <ol className="flex flex-col">
+            {stepper.map((s, i) => {
+              const state = i < at || (done && i === at) ? "done" : i === at ? "now" : "next";
+              return (
+                <li key={s.title} className="relative flex gap-[10px] pb-[18px] last:pb-0">
+                  {i < stepper.length - 1 ? (
+                    <span aria-hidden="true" className="absolute top-[24px] bottom-[2px] left-[9.5px] w-px bg-[var(--pg-border-strong)]" />
+                  ) : null}
+                  <span
+                    className={cn(
+                      "relative flex size-[20px] shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors",
+                      state === "done" && "bg-pg-heading text-pg-surface",
+                      state === "now" && "bg-pg-surface text-pg-heading shadow-[inset_0_0_0_1.5px_var(--pg-heading)]",
+                      state === "next" && "bg-pg-surface text-pg-faint shadow-[inset_0_0_0_1px_var(--pg-border-strong)]",
+                    )}
+                  >
+                    {state === "done" ? <Check size={11} strokeWidth={3} aria-hidden="true" /> : i + 1}
+                  </span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className={cn("text-[13px] leading-[20px] font-medium", state === "next" ? "text-pg-muted" : "text-pg-heading")}>
+                      {s.title}
+                    </span>
+                    <span className="text-[12px] leading-[16px] text-pg-faint">{s.hint}</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+          <ScopeCallout />
+        </aside>
+
+        {/* The step */}
+        <section className="flex min-w-0 flex-1 flex-col">
+          {done ? (
+            <DoneView flow={flow} />
+          ) : (
+            <>
+              <div key={step} className="ob-in min-h-0 flex-1 overflow-y-auto">
+                {step === 0 ? (
+                  <WelcomeHero />
+                ) : (
+                  <div className="flex flex-col gap-[16px] p-[16px]">
+                    <div className="flex flex-col gap-[2px]">
+                      <h3 className="text-[16px] leading-[22px] font-semibold text-pg-heading">{STEP_COPY[step]!.title}</h3>
+                      <p className="text-[13px] leading-[18px] text-pg-muted">{STEP_COPY[step]!.sub}</p>
+                    </div>
+                    <StepBody flow={flow} columns={3} />
+                  </div>
+                )}
               </div>
-              <WelcomeHero />
-            </div>
-            <footer className="flex shrink-0 items-center gap-[12px] px-[24px] py-[14px] shadow-[inset_0_1px_0_0_var(--pg-border)]">
-              <span className="flex-1" />
-              <Btn tone="ghost" onClick={flow.later}>Skip for now</Btn>
-              <Btn tone="primary" autoFocus onClick={flow.next}>Get started</Btn>
-            </footer>
-          </>
-        ) : (
-          <>
-            <header className="flex shrink-0 items-start gap-[12px] px-[24px] pt-[20px] pb-[12px]">
-              <div className="flex min-w-0 flex-1 flex-col gap-[4px]">
-                <h2 className="text-[18px] leading-[26px] font-semibold text-pg-heading">{STEP_COPY[step]!.title}</h2>
-                <p className="text-[13px] leading-[18px] text-pg-muted">{STEP_COPY[step]!.sub}</p>
-              </div>
-              <CloseButton onClick={flow.later} />
-            </header>
-            <div key={step} className="ob-in min-h-0 flex-1 overflow-y-auto px-[24px] pb-[16px]">
-              <StepBody flow={flow} columns={3} />
-            </div>
-            <footer className="flex shrink-0 items-center gap-[12px] px-[24px] py-[14px] shadow-[inset_0_1px_0_0_var(--pg-border)]">
-              {step > 0 ? (
-                <Btn tone="ghost" onClick={flow.back}>
-                  <ArrowLeft size={15} aria-hidden="true" />
-                  Back
+              <footer className="flex shrink-0 items-center justify-end gap-[12px] px-[16px] py-[12px] shadow-[inset_0_1px_0_0_var(--pg-border)]">
+                <Btn onClick={flow.later}>Skip for now</Btn>
+                <Btn tone="primary" autoFocus onClick={flow.next}>
+                  {primaryLabel(flow)}
                 </Btn>
-              ) : null}
-              <span className="flex-1" />
-              <Btn tone="ghost" onClick={flow.later}>Skip for now</Btn>
-              <Btn tone="primary" autoFocus onClick={flow.next}>
-                {step === 0 ? "Get started" : step === STEPS.length - 1 ? "Finish setup" : "Continue"}
-              </Btn>
-            </footer>
-          </>
-        )}
-      </section>
+              </footer>
+            </>
+          )}
+        </section>
+      </div>
     </Frame>
   );
 }
@@ -404,6 +437,7 @@ function StepperLook({ flow }: { flow: Flow }) {
 /* Look 2 — split (card + big preview)                                     */
 /* ---------------------------------------------------------------------- */
 
+const SPLIT_COPY_EXTRA = { a: "Choose who gets it.", b: "All, or just some." };
 const SPLIT_COPY = [
   { a: "Your sidebar,", b: "your brand." },
   { a: "Add your logos.", b: "Shown everywhere." },
@@ -435,9 +469,9 @@ function SplitLook({ flow }: { flow: Flow }) {
               )}
             </div>
             <h2 className="mt-[24px] text-[28px] leading-[34px] font-semibold tracking-[-0.02em] text-pg-heading">
-              {SPLIT_COPY[step]!.a}
+              {(SPLIT_COPY[step] ?? SPLIT_COPY_EXTRA).a}
               <br />
-              <span className="text-pg-faint">{SPLIT_COPY[step]!.b}</span>
+              <span className="text-pg-faint">{(SPLIT_COPY[step] ?? SPLIT_COPY_EXTRA).b}</span>
             </h2>
             <div className="mt-[20px] min-h-0 flex-1 overflow-y-auto">
               <StepBody flow={flow} columns={2} narrow />
@@ -449,7 +483,7 @@ function SplitLook({ flow }: { flow: Flow }) {
                 onClick={flow.next}
                 className="motion-tap h-[40px] w-full rounded-[8px] bg-pg-heading text-[14px] font-medium text-pg-surface hover:opacity-90 active:scale-[0.99]"
               >
-                {step === 0 ? "Get started" : step === STEPS.length - 1 ? "Finish setup" : "Continue"}
+                {primaryLabel(flow)}
               </button>
               <div className="flex items-center gap-[8px]">
                 {step > 0 ? (
@@ -470,7 +504,7 @@ function SplitLook({ flow }: { flow: Flow }) {
                 </button>
               </div>
               <div className="mt-[4px] flex justify-center gap-[6px]" aria-hidden="true">
-                {STEPS.map((s, i) => (
+                {flow.steps.map((s, i) => (
                   <span
                     key={s.title}
                     className={cn(
@@ -500,14 +534,22 @@ function SplitLook({ flow }: { flow: Flow }) {
 /* ---------------------------------------------------------------------- */
 
 function StepBody({ flow, columns, narrow = false }: { flow: Flow; columns: number; narrow?: boolean }) {
+  const { proto } = useBranding();
   if (flow.step === 0) return <WelcomeStep narrow={narrow} />;
   if (flow.step === 1) return <LogosStep narrow={narrow} />;
+  if (flow.step === 3) return <SubAccountPicker picked={flow.picked} onChange={flow.setPicked} className="h-[360px]" />;
   return (
     <div className="flex flex-col gap-[16px]">
       <Callout icon={<Info size={15} aria-hidden="true" />}>
         Your custom sidebar CSS won&apos;t apply to the new sidebar. Your theme replaces it.
       </Callout>
-      <ThemePicker value={flow.theme} onChange={flow.setTheme} columns={columns} />
+      {proto.onboardingThemeStep === "full" ? (
+        // Everything the White label tab has: color mode, themes or a custom
+        // theme, window gradient, and font (Nov 24).
+        <ThemeEditor value={flow.theme} onChange={flow.setTheme} columns={columns} />
+      ) : (
+        <ThemePicker value={flow.theme} onChange={flow.setTheme} columns={columns} />
+      )}
     </div>
   );
 }
@@ -580,86 +622,67 @@ function LogosStep({ narrow }: { narrow: boolean }) {
     img.src = dataUrl;
   };
 
+  /*
+   * The same upload rows as Business profile and White label (Ashwin, Nov
+   * 24): one control for logos everywhere. A rule between the two, and the
+   * initials background under the icon while there is no icon.
+   */
   return (
-    <div className={cn("grid gap-[12px]", narrow ? "grid-cols-1" : "grid-cols-2")}>
-      <UploadTile
+    <div className="flex flex-col gap-[16px] rounded-[10px] p-[16px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+      <BrandAssetRow
+        compact
         label="Full logo"
         hint="Replaces your agency name at the top of the sidebar."
-        spec="Wide · 350 × 180 px · Max 2.5 MB"
-        src={up.wordmarkSrc}
+        spec="Ideal: 350 × 180 px · Max 2.5 MB"
+        aspect="wide"
+        {...(up.wordmarkSrc ? { src: up.wordmarkSrc } : {})}
         onPick={(src, fileName) => void setAgencyFullLogo(brand, src, fileName)}
         onRemove={() => clearAgencyFullLogo(brand)}
-        onSample={() => void setAgencyFullLogo(brand, SAMPLE_FULL_LOGO)}
-        preview={
-          up.wordmarkSrc ? (
-            <img src={up.wordmarkSrc} alt="Full logo" className="max-h-[44px] max-w-[85%] object-contain" />
-          ) : null
-        }
       />
-      <UploadTile
+      {up.wordmarkSrc ? null : (
+        <button
+          type="button"
+          onClick={() => void setAgencyFullLogo(brand, SAMPLE_FULL_LOGO)}
+          className="motion-tap -mt-[8px] self-start text-[13px] leading-[18px] font-medium text-[var(--hr-primary-600)] hover:underline"
+        >
+          Use a sample logo
+        </button>
+      )}
+
+      <div aria-hidden="true" className="h-px w-full bg-pg-border" />
+
+      <BrandAssetRow
+        compact
         label="Sidebar icon"
-        hint={up.logoSrc ? "Shows in the rail and the collapsed sidebar." : "Optional. Without one, we use your initials."}
+        hint={up.logoSrc ? "Shows in the rail and the collapsed sidebar." : "Optional. Without one, we show your initials."}
         spec="Square · Min 128 × 128 px · Max 2.5 MB"
-        src={up.logoSrc}
-        error={iconError}
-        onPick={pickIcon}
+        aspect="square"
+        {...(up.logoSrc ? { src: up.logoSrc } : {})}
+        fallback={{ ...logo, initials }}
+        {...(iconError ? { error: iconError } : {})}
+        onPick={(src) => pickIcon(src)}
         onRemove={() => {
           setIconError(null);
           clear(AGENCY_ID, "logoSrc");
         }}
-        onSample={() => set(AGENCY_ID, "logoSrc", SAMPLE_ICON)}
-        preview={
-          <AccountLogo
-            logo={logo}
-            src={up.logoSrc}
-            initials={up.logoSrc ? undefined : initials}
-            tint
-            fit="cover"
-            size={52}
-            radius={14}
-          />
-        }
-        filled
-      >
-        {up.logoSrc ? null : (
-          <div className="flex flex-wrap items-center gap-[8px]">
-            <span className="text-[12px] leading-[16px] text-pg-muted">Background</span>
-            {swatches.map((c, i) => {
-              const on = (tile?.color ?? NEUTRAL).toLowerCase() === c.toLowerCase();
-              const t = avatarTile(c, proto.avatarStyle);
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  aria-label={i < colors.length ? `Color ${i + 1} from your logo` : "Gray"}
-                  aria-pressed={on}
-                  onClick={() => pick(c)}
-                  className={cn(
-                    "motion-tap size-[22px] rounded-full",
-                    on
-                      ? "shadow-[0_0_0_2px_var(--pg-surface),0_0_0_4px_var(--pg-heading)]"
-                      : "shadow-[inset_0_0_0_1px_rgba(16,24,40,0.12)]",
-                  )}
-                  style={{ background: t.from === t.to ? c : `linear-gradient(135deg, ${t.from}, ${t.to})` }}
-                />
-              );
-            })}
-            <label
-              title="Custom color"
-              className="motion-tap relative flex size-[22px] cursor-pointer items-center justify-center rounded-full text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg"
-            >
-              <Plus size={13} aria-hidden="true" />
-              <span className="sr-only">Custom color</span>
-              <input
-                type="color"
-                value={tile?.color ?? NEUTRAL}
-                onChange={(e) => pick(e.target.value)}
-                className="absolute inset-0 cursor-pointer opacity-0"
-              />
-            </label>
-          </div>
-        )}
-      </UploadTile>
+      />
+
+      {up.logoSrc && proto.iconDisplay === "logo" ? null : (
+        <AvatarEditor
+          initials={initials}
+          onInitials={(v) =>
+            brand.setName(AGENCY_ID, { name: brand.names[AGENCY_ID]?.name ?? agency.name, initials: v })
+          }
+          onResetInitials={() => {
+            const name = brand.names[AGENCY_ID]?.name ?? agency.name;
+            brand.setName(AGENCY_ID, { name, initials: brandInitials(name.split(/\s+/)[0]!) });
+          }}
+          color={tile?.color ?? NEUTRAL}
+          logoColors={colors}
+          style={proto.avatarStyle}
+          onColor={pick}
+        />
+      )}
     </div>
   );
 }
@@ -718,6 +741,7 @@ function DoneView({ flow, narrow = false }: { flow: Flow; narrow?: boolean }) {
 
   return (
     <div className={cn("ob-in relative flex flex-1 flex-col items-center justify-center overflow-hidden text-center", narrow ? "px-[28px] py-[32px]" : "px-[48px] py-[32px]")}>
+
       {/* Soft glow + a burst of the theme's own colours */}
       <span
         aria-hidden="true"
@@ -765,7 +789,7 @@ function DoneView({ flow, narrow = false }: { flow: Flow; narrow?: boolean }) {
 
       <div className="relative mt-[24px] flex w-full max-w-[380px]">
         <Btn tone="primary" autoFocus className="h-[40px] w-full" onClick={flow.close}>
-          Explore Switchyard
+          Explore the new navigation
         </Btn>
       </div>
       <p className="relative mt-[10px] text-[12px] leading-[16px] text-pg-faint">
@@ -780,7 +804,7 @@ function WelcomeHero() {
   const { uploads } = useBrand();
   const up = uploads[AGENCY_ID] ?? {};
   const suggested = useLogoThemeSuggestions();
-  const after = suggested.find((p) => p.id === "logo-bold") ?? BRANDING_PRESETS.find((p) => p.id === "royal-velvet")!;
+  const after = suggested.find((p) => p.id === "logo-bold") ?? BRANDING_PRESETS.find((p) => p.id === "plum")!;
   const afterChrome = deriveChrome(themeFromPreset(after), "light");
   const plan = [
     { Icon: ImagePlus, title: "Add your logos", body: "Full logo up top, icon in the rail", time: "1 min" },
@@ -790,7 +814,7 @@ function WelcomeHero() {
   return (
     <div className="flex flex-col">
       {/* Hero */}
-      <div className="relative flex h-[208px] items-center justify-center gap-[20px] overflow-hidden bg-[radial-gradient(120%_120%_at_50%_0%,var(--hr-primary-50),var(--pg-surface)_70%)] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
+      <div className="relative flex h-[184px] items-center justify-center gap-[20px] overflow-hidden bg-pg shadow-[inset_0_-1px_0_0_var(--pg-border)]">
         <span aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(var(--pg-border)_1px,transparent_1px)] [background-size:14px_14px] opacity-60 [mask-image:radial-gradient(70%_70%_at_50%_40%,#000,transparent)]" />
         <SidebarSketch bg="#ffffff" fg="#98a2b3" sel="#e8efff" selFg="#155eef" label="HighLevel" muted className="relative -rotate-[4deg] opacity-80" />
         <span className="relative flex size-[32px] items-center justify-center rounded-full bg-pg-surface text-pg-muted shadow-[0_2px_6px_rgba(16,24,40,0.12)]">
@@ -807,13 +831,12 @@ function WelcomeHero() {
         />
       </div>
       {/* Copy + plan */}
-      <div className="flex flex-col gap-[16px] px-[24px] pt-[20px] pb-[16px]">
+      <div className="flex flex-col gap-[16px] p-[16px]">
         <div className="flex flex-col gap-[6px]">
-          <span className="inline-flex items-center gap-[4px] self-start rounded-full bg-[var(--hr-primary-50)] px-[8px] py-[2px] text-[12px] leading-[16px] font-medium text-[var(--hr-primary-700)]">
-            <Sparkles size={12} aria-hidden="true" />
-            Switchyard is on
+          <span className="text-[12px] leading-[16px] font-medium tracking-[0.02em] text-pg-faint uppercase">
+            New navigation is on
           </span>
-          <h2 className="text-[22px] leading-[30px] font-semibold tracking-[-0.01em] text-pg-heading">Make the new sidebar yours</h2>
+          <h3 className="text-[20px] leading-[28px] font-semibold tracking-[-0.01em] text-pg-heading">Make the new navigation yours</h3>
           <p className="text-[14px] leading-[20px] text-pg-muted">
             Two quick steps and your agency and all {SUBS} sub-accounts look like your brand.
           </p>
@@ -821,7 +844,7 @@ function WelcomeHero() {
         <ol className="flex flex-col overflow-hidden rounded-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)] [&>li+li]:shadow-[inset_0_1px_0_0_var(--pg-border)]">
           {plan.map(({ Icon, title, body, time }, i) => (
             <li key={title} className="ob-in flex items-center gap-[12px] px-[14px] py-[10px]" style={{ animationDelay: `${120 + i * 60}ms` }}>
-              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--hr-primary-50)] text-[var(--hr-primary-600)]">
+              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-[8px] bg-pg text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)]">
                 <Icon size={15} aria-hidden="true" />
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
@@ -837,10 +860,159 @@ function WelcomeHero() {
   );
 }
 
+/**
+ * The initials avatar's editor (Nov 24): its two letters and its colour —
+ * colours from the full logo first (the first is the suggestion), then gray,
+ * then a custom picker. Shared by onboarding and Business profile.
+ */
+export function AvatarEditor({
+  initials,
+  onInitials,
+  onResetInitials,
+  color,
+  logoColors,
+  style = "solid",
+  onColor,
+}: {
+  initials: string;
+  onInitials: (v: string) => void;
+  onResetInitials: () => void;
+  color: string;
+  /** Raw colours read off the logo; made legible for white initials here. */
+  logoColors: readonly string[];
+  style?: AvatarStyle;
+  onColor: (c: string) => void;
+}) {
+  const swatches = [...new Set([...logoColors.map(avatarColorFrom), NEUTRAL])];
+  return (
+    <div className="flex flex-wrap items-center gap-[8px]">
+      <InitialsInput value={initials} onChange={onInitials} onReset={onResetInitials} />
+      <span aria-hidden="true" className="mx-[4px] h-[20px] w-px bg-pg-border" />
+      <span className="mr-[4px] text-[13px] leading-[18px] text-pg-text">Background</span>
+      {swatches.map((c, i) => {
+        const on = color.toLowerCase() === c.toLowerCase();
+        const t = avatarTile(c, style);
+        return (
+          <button
+            key={c}
+            type="button"
+            aria-label={i < logoColors.length ? `Color ${i + 1} from your logo` : "Gray"}
+            aria-pressed={on}
+            onClick={() => onColor(c)}
+            className={cn(
+              "motion-tap size-[22px] rounded-full",
+              on
+                ? "shadow-[0_0_0_2px_var(--pg-surface),0_0_0_4px_var(--pg-heading)]"
+                : "shadow-[inset_0_0_0_1px_rgba(16,24,40,0.12)]",
+            )}
+            style={{ background: t.from === t.to ? c : `linear-gradient(135deg, ${t.from}, ${t.to})` }}
+          />
+        );
+      })}
+      <label
+        title="Custom color"
+        className="motion-tap relative flex size-[22px] cursor-pointer items-center justify-center rounded-full text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg"
+      >
+        <Plus size={13} aria-hidden="true" />
+        <span className="sr-only">Custom color</span>
+        <input
+          type="color"
+          value={color}
+          onChange={(e) => onColor(e.target.value)}
+          className="absolute inset-0 cursor-pointer opacity-0"
+        />
+      </label>
+      {logoColors.length ? (
+        <span className="flex items-center gap-[4px] text-[12px] leading-[16px] text-pg-faint">
+          <Sparkles size={12} aria-hidden="true" />
+          From your logo
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Two letters for the initials avatar, editable (Nov 24): A–Z and 0–9,
+ * upper-cased. Left empty, it goes back to the letters from the name.
+ */
+export function InitialsInput({
+  value,
+  onChange,
+  onReset,
+  label = "Initials",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onReset: () => void;
+  label?: string;
+}) {
+  return (
+    <label className="flex items-center gap-[8px]">
+      <span className="text-[13px] leading-[18px] text-pg-text">{label}</span>
+      <input
+        value={value}
+        maxLength={2}
+        aria-label="Avatar initials"
+        onChange={(e) => onChange(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 2))}
+        onBlur={(e) => {
+          if (!e.target.value) onReset();
+        }}
+        className="h-[32px] w-[52px] rounded-[8px] bg-pg-surface px-[8px] text-center text-[14px] font-semibold tracking-[0.06em] text-pg-heading uppercase shadow-[inset_0_0_0_1px_var(--pg-border-strong)] outline-none focus:shadow-[inset_0_0_0_1.5px_var(--hr-primary-600)]"
+      />
+    </label>
+  );
+}
+
 /** The agency's initials: from its logo's name when there is one. */
 function useAgencyInitials(): string {
   const { names } = useBrand();
   return names[AGENCY_ID]?.initials ?? initialsFor(agency.name);
+}
+
+/**
+ * Who the setup reaches, made prominent (Nov 24): a card at the foot of the
+ * step list. Agency-wide it says all sub-accounts; when saves ask "all or
+ * selected" it says the choice comes at the end.
+ */
+function ScopeCallout() {
+  const ask = useThemeScopeAsk();
+  const { uploads, avatars, names } = useBrand();
+  const tile = avatars[AGENCY_ID];
+  const mark = { ...agency.logo, ...(tile ? { from: tile.from, to: tile.to, brandTile: true } : {}) };
+  const initials = names[AGENCY_ID]?.initials ?? initialsFor(agency.name);
+  const faces = ALL_ACCOUNTS.slice(0, 4);
+  return (
+    <div className="mt-auto flex flex-col gap-[10px]">
+      {/* Who it reaches, as faces before words */}
+      <div className="flex items-center">
+        <span className="relative z-[5] rounded-full ring-2 ring-[var(--pg-bg)]">
+          <AccountLogo logo={mark} src={uploads[AGENCY_ID]?.logoSrc} initials={uploads[AGENCY_ID]?.logoSrc ? undefined : initials} tint fit="cover" size={24} radius={999} />
+        </span>
+        {faces.map((a, i) => (
+          <span key={a.id} className="relative -ml-[6px] rounded-full ring-2 ring-[var(--pg-bg)]" style={{ zIndex: 4 - i }}>
+            <AccountLogo logo={a.logo} size={24} radius={999} />
+          </span>
+        ))}
+        <span className="relative -ml-[6px] flex h-[24px] min-w-[24px] items-center justify-center rounded-full bg-pg-surface px-[6px] text-[10px] font-semibold text-pg-muted ring-2 ring-[var(--pg-bg)] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+          +{(ALL_ACCOUNTS.length - faces.length).toLocaleString("en-US")}
+        </span>
+      </div>
+      <p className="text-[12px] leading-[17px] text-pg-muted">
+        {ask ? (
+          <>
+            <span className="font-medium text-pg-heading">You choose who gets it.</span> All {SUBS} sub-accounts
+            are selected; untick any in the Sub-accounts step.
+          </>
+        ) : (
+          <>
+            <span className="font-medium text-pg-heading">Your agency and all {SUBS} sub-accounts</span> get your
+            logo and theme.
+          </>
+        )}
+      </p>
+    </div>
+  );
 }
 
 /** A tiny static sidebar for the welcome hero. */

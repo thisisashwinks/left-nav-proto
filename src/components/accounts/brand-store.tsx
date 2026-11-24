@@ -133,17 +133,20 @@ export function applyBrand(
   if (!tile && !named && (!up || (up.logoSrc === undefined && up.wordmarkSrc === undefined))) {
     return account;
   }
+  const cover = up.logoSrc !== undefined;
   const logo = {
     ...account.logo,
     // The initials avatar's colour, under any square icon (which covers it).
     ...(tile ? { from: tile.from, to: tile.to, brandTile: true } : {}),
     ...(named ? { initials: named.initials } : {}),
+    // An uploaded square icon fills the avatar (Nov 24).
+    ...(up.logoSrc !== undefined ? { coverSrc: true } : {}),
   };
   return {
     ...account,
     ...(named ? { name: named.name } : {}),
-    ...(tile || named ? { logo } : {}),
-    ...(up.logoSrc !== undefined ? { logoSrc: up.logoSrc } : {}),
-    ...(up.wordmarkSrc !== undefined ? { wordmarkSrc: up.wordmarkSrc } : {}),
+    ...(tile || named || cover ? { logo } : {}),
+    ...(up.logoSrc !== undefined ? { logoSrc: up.logoSrc, logoUploaded: true } : {}),
+    ...(up.wordmarkSrc !== undefined ? { wordmarkSrc: up.wordmarkSrc, wordmarkUploaded: true } : {}),
   };
 }

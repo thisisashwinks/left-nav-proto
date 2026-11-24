@@ -147,6 +147,18 @@ export function useBrandingEditTool(): { label: string; short: string; onOpen: (
   const { canEdit } = useBrandingAccess();
   const openDoor = useOpenThemeDoor();
   const openPanel = useCustomizeEntry("edit-mode");
+  // Combined + edit card (Nov 24): the colour icon opens inline (saved with
+  // the edit session) or goes through the Customize theme door.
+  if (proto.layoutTheme === "combined" && proto.combinedTheme === "edit-card" && canEdit) {
+    return {
+      label: "Customize theme",
+      short: "Theme",
+      onOpen: (trigger) =>
+        proto.paletteOpens === "inline"
+          ? setEditPaletteAnchor(paletteAnchor === trigger ? null : trigger, true)
+          : openDoor(trigger),
+    };
+  }
   if (proto.entryPoints.editPalette && canEdit) {
     return {
       label: "Customize theme",
@@ -173,6 +185,8 @@ export function useBrandingEditTool(): { label: string; short: string; onOpen: (
 export function useBrandingEditToolHidden(): boolean {
   const { proto } = useBranding();
   const { visible } = useBrandingAccess();
+  // Combined + edit card: the theme IS part of editing (Nov 24).
+  if (proto.layoutTheme === "combined" && proto.combinedTheme === "edit-card") return false;
   return visible && proto.saveTarget === "agency";
 }
 

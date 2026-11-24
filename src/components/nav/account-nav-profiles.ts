@@ -808,3 +808,32 @@ export function homeRecentIdFor(layout: NavLayoutState): string {
 export function freshStart(layout: NavLayoutState): NavLayoutState {
   return { ...layout, pinned: [], recents: [homeRecentIdFor(layout)] };
 }
+
+/**
+ * The three places a new sub-account opens in its first week.
+ *
+ * Shipped ids, resolved through the equivalence map like DEFAULT_PINNED is:
+ * an account provisioned on the other catalogue calls these by other names,
+ * and a pin naming an id it does not own is a row the nav cannot draw.
+ */
+const STARTER_PINS = ["contacts", "calendars", "conversations"];
+
+/**
+ * A first login that starts with three pins instead of none.
+ *
+ * The same one-row history `freshStart` gives — the pins are a starting
+ * point, not a claimed history — so the two answers differ in exactly one
+ * field. It exists for `recentsReach: "elsewhere"` and `"none"`, where a
+ * Pinned-only column with nothing pinned shows nothing at all and there is no
+ * block to look at. See NAV_RECENTS_STARTS.
+ */
+export function starterStart(layout: NavLayoutState): NavLayoutState {
+  const enabled = new Set(layout.enabledProducts);
+  return {
+    ...layout,
+    pinned: STARTER_PINS.map((id) => resolveOwned(id, enabled)).filter(
+      (id): id is string => id !== undefined,
+    ),
+    recents: [homeRecentIdFor(layout)],
+  };
+}

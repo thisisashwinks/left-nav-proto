@@ -20,7 +20,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Check, CheckCircle2, ChevronDown, Monitor, Moon, Sparkles, Sun, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, Monitor, Moon, Sun, X } from "lucide-react";
 import { useBranding } from "@/components/branding/branding-provider";
 import { useModeFor } from "@/components/branding/branding-applier";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -344,10 +344,7 @@ export function PresetGrid({
     <div className="flex flex-col gap-[8px]">
     {suggested.length ? (
       <>
-        <div className="flex items-center gap-[6px] text-[13px] leading-[18px] font-medium text-pg-text">
-          <Sparkles size={14} aria-hidden="true" className="text-[var(--hr-primary-600)]" />
-          Suggested from your logo
-        </div>
+        <div className="text-[13px] leading-[18px] font-medium text-pg-text">Suggested from your logo</div>
         <div role="radiogroup" aria-label="Suggested from your logo" className="grid gap-[8px]" style={grid}>
           {suggested.map((p) => tile(p))}
         </div>
@@ -1376,6 +1373,7 @@ export function ThemeEditor({
   compact = false,
   columns,
 }: ThemeFieldProps & { compact?: boolean; columns?: number }) {
+  const suggested = useLogoThemeSuggestions();
   const { proto } = useBranding();
   const field = { value, onChange, disabled };
   const [tab, setTab] = React.useState<ThemeTab>(value.presetId ? "themes" : "custom");
@@ -1392,7 +1390,7 @@ export function ThemeEditor({
         <div className="flex flex-col gap-[12px]">
           <Tabs label="Theme" tabs={THEME_TABS} value={tab} onChange={setTab} />
           {tab === "themes" ? (
-            <PresetGrid {...field} columns={columns ?? (compact ? 2 : 3)} />
+            <PresetGrid {...field} columns={columns ?? (compact ? 2 : 3)} suggested={suggested} />
           ) : (
             <CustomThemeFields {...field} />
           )}

@@ -172,7 +172,8 @@ import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
 import { NavRowsSkeleton } from "@/components/shell/switching";
 import { NavAppearance } from "./nav-appearance";
-import { useThemeSessionPending } from "@/components/branding/edit-session-theme";
+import { peekThemeSession, useThemeSessionPending } from "@/components/branding/edit-session-theme";
+import { askThemeScope, keepThemeFor, useThemeScopeAsk } from "@/components/branding/theme-scope";
 import { useBranding } from "@/components/branding/branding-provider";
 import { Monitor, Search, Smartphone, type LucideIcon } from "lucide-react";
 import { LEARN_FLYOUT_ID, LEARN_ICONS, LEARN_NAV_LABEL } from "@/components/flyout/learn-flyout";
@@ -474,6 +475,7 @@ export function LeftNav({
     launchpad: launchpadSetting,
     navSections,
     recentsMode,
+    recentsReach,
     mergedPinScope,
     getAppPlacement,
     productDirectoryRow,
@@ -579,6 +581,15 @@ export function LeftNav({
    * sub-account never had to answer.
    */
   const mergedMode = recentsMode === "merged";
+  /*
+   * Recently-visited removed outright, in every mode. See RECENTS_REACHES.
+   *
+   * Only `none` strips the authored block. `elsewhere` leaves the door —
+   * app-shell drops that mode's row budget to zero instead, which turns the
+   * More row into a "Recent" door and keeps the history one click away,
+   * exactly as the axis promises.
+   */
+  const recentsGone = recentsReach === "none";
   /** Recent folds in both heading variants; only "all" names every band. */
   const foldable = navSections !== "plain";
   const bandEverything = navSections === "all";
@@ -763,8 +774,27 @@ export function LeftNav({
   const themePending = useThemeSessionPending();
   // Only when themes ride on layouts does a theme change ask "which layout"
   // (Nov 19). Agency-wide (default), it is saved with the session as is.
-  const brandingSaveTarget = useBranding().proto.saveTarget;
+  const branding = useBranding();
+  const brandingSaveTarget = branding.proto.saveTarget;
   const themeLayoutPending = themePending && brandingSaveTarget === "layout";
+  /*
+   * Theme changed in this edit session, agency-wide, and saves ask "all or
+   * selected" (Nov 24): ask before the session's own save runs; the picked
+   * sub-accounts take the theme, the rest keep what they had.
+   */
+  const scopeAsk = useThemeScopeAsk();
+  const withThemeScope = (save: () => void) => {
+    const open = peekThemeSession();
+    if (!themePending || !scopeAsk || !open || open.key !== "all") return save();
+    void askThemeScope().then((r) => {
+      if (!r) return;
+      if (r !== "all") {
+        const before = open.original as Parameters<typeof keepThemeFor>[2];
+        branding.writeState((st) => keepThemeFor(st, r, before));
+      }
+      save();
+    });
+  };
 
   /**
    * Put a template on this account, and record that it is on it.
@@ -1557,6 +1587,23 @@ export function LeftNav({
    */
   const cardShowing =
     workspace === null && ((launchpad && !agencyScope) || cardQuickActions);
+
+  /*
+   * Whether the card is the last thing before the tree.
+   *
+   * Only with recently-visited pulled out of the column AND nothing pinned —
+   * which is the first login, where `fresh` starts with no pins and the
+   * history that would have filled the block is gone. Every other
+   * combination puts a block with its own heading under the card, and the
+   * heading brings the lead-in the card would otherwise be paying for twice.
+   * The moment anything is pinned the block is back, so the gap is spent
+   * exactly while there is nothing to separate the card FROM.
+   * See CARD_GAP_MIN. Ashwin, Nov 24.
+   */
+  const cardGapBelow =
+    cardShowing &&
+    recentsReach !== "nav" &&
+    (agencyScope ? agencyLayout.pinned.length : state.pinned.length) === 0;
 
   /*
    * The categories, in the order the nav draws them.
@@ -2783,7 +2830,7 @@ export function LeftNav({
      * one destination, a few rows apart.
      */
     const base = tidyRules(
-      merged
+      merged || recentsGone
         ? resolved.filter(
             (e) =>
               !isRecentRow(e) &&
@@ -2816,6 +2863,7 @@ export function LeftNav({
     cardQuickActions,
     qaBesideSearch,
     merged,
+    recentsGone,
     workspace,
   ]);
   /**
@@ -3306,7 +3354,7 @@ export function LeftNav({
                 showIntro: !introDismissed && !editing,
                 ...(onDismissIntro ? { onDismissIntro } : {}),
               }),
-          onSave: () => {
+          onSave: () => withThemeScope(() => {
             /*
              * The one place the flow can destroy something.
              *
@@ -3359,7 +3407,7 @@ export function LeftNav({
              * undo. The banner stays up, and its own button is the way back,
              * as is the Layout row in the ⋯ menu.
              */
-          },
+          }),
           onDiscard: () => {
             // Nothing changed, nothing to warn about — the confirmation only
             // earns its interruption when there is work to lose.
@@ -5671,7 +5719,12 @@ export function LeftNav({
         one the app-bar placement already used, for the same reason: editing
         the nav is the nav's own affordance and does not travel with search.
       */}
-      {topEntry ? (
+      {/*
+        Not at agency scope unless the agency has sidebar search (Nov 24): with
+        search off the row was a lone Ask AI pill, which the agency's top bar
+        already carries.
+      */}
+      {topEntry && (!agencyScope || agencySearch) ? (
         <EntryCluster
           onSearch={onSearch}
           session={aiSession}
@@ -5872,6 +5925,7 @@ export function LeftNav({
           {cardShowing && !searchOnly && !hideOpeningCluster ? (
             <SetupGuideRow
               showLaunchpad={launchpad}
+              {...(cardGapBelow ? { gapBelow: true } : {})}
               // At agency the card opens the agency's own Launchpad row; at
               // sub-account it opens the proposed tree's home product.
               onOpen={() =>
@@ -7360,6 +7414,7 @@ function SetupGuideRow({
   onQuickActions,
   onQuickActionsHover,
   quickActionsActive = false,
+  gapBelow = false,
 }: {
   /**
    * False when Launchpad is switched off but Quick Actions is not — the box
@@ -7384,8 +7439,18 @@ function SetupGuideRow({
   onQuickActionsHover?: () => void;
   /** Collapsed only — the tile is lit while its page or panel is up. */
   quickActionsActive?: boolean;
+  /**
+   * Whether the card is paying for the gap a section heading would have
+   * brought with it. See CARD_GAP_MIN.
+   *
+   * A prop rather than a theme read, because only the caller can see what
+   * comes next: this component knows it is a card and nothing about the
+   * column it sits in.
+   */
+  gapBelow?: boolean;
 }) {
-  const { launchpadCard, topAlignCard, topAlignCardNudge } = useTheme().effective;
+  const { launchpadCard, topAlignCard, topAlignCardNudge, launchpadCardGap } =
+    useTheme().effective;
   /*
    * Collapsed, the card stands down to its glyphs — see motion.css. The
    * Rocket becomes the card's door in the bar (the card's own click target
@@ -7428,8 +7493,20 @@ function SetupGuideRow({
       to align and keeps its 4px. See TOP_ALIGN_NUDGE_MIN.
     */
     <div
-      className={cn("w-full shrink-0", plain ? "pb-[4px]" : "pb-[2px]")}
-      style={{ paddingTop: alignToCanvas ? topAlignCardNudge : 4 }}
+      className={cn(
+        "w-full shrink-0",
+        gapBelow ? null : plain ? "pb-[4px]" : "pb-[2px]",
+      )}
+      style={{
+        paddingTop: alignToCanvas ? topAlignCardNudge : 4,
+        /*
+          The heading's lead-in, given to the card, for the arrangement that
+          has no heading — see CARD_GAP_MIN. Inline rather than a class
+          because it is a panel dial, and it replaces the 2px rather than
+          adding to it: the number in the panel is the gap you see.
+        */
+        ...(gapBelow ? { paddingBottom: launchpadCardGap } : {}),
+      }}
     >
       {/* A div holding two buttons — the card navigates, the ⚡ opens a panel,
           and nesting one button in another is invalid markup. */}

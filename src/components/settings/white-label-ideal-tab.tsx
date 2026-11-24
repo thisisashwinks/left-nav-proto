@@ -1,6 +1,14 @@
 "use client";
 
 import { brandInitials, logoName, trimLogo } from "@/lib/logo-trim";
+import { InitialsInput } from "@/components/branding/switchyard-onboarding";
+
+/** The seeded rule (two words → both first letters), for names not read off a logo. */
+function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length > 1) return (words[0]![0]! + words[1]![0]!).toUpperCase();
+  return brandInitials(words[0] ?? "?");
+}
 import * as React from "react";
 import { Info, Mail, Plus, Pencil, Trash2, X } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
@@ -109,9 +117,18 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
    */
   const [logoDraft, setLogoDraft] = React.useState<{ wordmark?: string | null; icon?: string | null }>({});
   const [iconError, setIconError] = React.useState<string | null>(null);
+  /*
+   * The avatar's initials (Nov 24): follow Brand name until edited here.
+   */
+  const [initialsDraft, setInitialsDraft] = React.useState<string | null>(null);
+  const savedInitials = brand.names[agency.id]?.initials ?? initialsOf(saved.brandName);
+  const shownInitials =
+    initialsDraft ??
+    (form.brandName !== saved.brandName ? brandInitials(form.brandName.trim().split(/\s+/)[0] || "?") : savedInitials);
   const shownWordmark = logoDraft.wordmark === undefined ? agency.wordmarkSrc : logoDraft.wordmark ?? undefined;
   const shownIcon = logoDraft.icon === undefined ? agency.logoSrc : logoDraft.icon ?? undefined;
-  const logosDirty = logoDraft.wordmark !== undefined || logoDraft.icon !== undefined;
+  const logosDirty =
+    logoDraft.wordmark !== undefined || logoDraft.icon !== undefined || (initialsDraft !== null && initialsDraft !== savedInitials);
 
   const pickWordmark = async (src: string, fileName?: string) => {
     const [trimmed, name] = await Promise.all([trimLogo(src), logoName(src, fileName)]);
@@ -140,16 +157,19 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
       if (logoDraft.icon) brand.set(agency.id, "logoSrc", logoDraft.icon);
       else brand.clear(agency.id, "logoSrc");
     }
-    const name = form.brandName.trim();
-    if (name && name !== SEED_AGENCY.name) {
-      brand.setName(agency.id, { name, initials: brandInitials(name.split(/\s+/)[0]!) });
-    } else if (name === SEED_AGENCY.name) {
+    const name = form.brandName.trim() || saved.brandName;
+    const initials = shownInitials || brandInitials(name.split(/\s+/)[0]!);
+    if (name !== SEED_AGENCY.name || initials !== initialsOf(SEED_AGENCY.name)) {
+      brand.setName(agency.id, { name, initials });
+    } else {
       brand.setName(agency.id, null);
     }
+    setInitialsDraft(null);
     setLogoDraft({});
     setIconError(null);
   };
   const cancelBrand = () => {
+    setInitialsDraft(null);
     setLogoDraft({});
     setIconError(null);
   };
@@ -367,10 +387,7 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
             spec="Square · Min 128 × 128 px · Max 2.5 MB"
             aspect="square"
             {...(shownIcon ? { src: shownIcon } : {})}
-            fallback={{
-              ...agency.logo,
-              initials: brandInitials((form.brandName || agency.name).split(/\s+/)[0]!),
-            }}
+            fallback={{ ...agency.logo, initials: shownInitials }}
             {...(iconError ? { error: iconError } : {})}
             onPick={(src) => pickIcon(src)}
             onRemove={() => {
@@ -379,6 +396,20 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
             }}
           />
         </div>
+
+        {shownIcon ? null : (
+          <div className="flex items-center gap-[12px]">
+            <InitialsInput
+              label="Avatar initials"
+              value={shownInitials}
+              onChange={setInitialsDraft}
+              onReset={() => setInitialsDraft(null)}
+            />
+            <span className="text-[13px] leading-[18px] text-pg-muted">
+              Shown on your sidebar icon until you upload one.
+            </span>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-[16px]">
           <Field

@@ -1405,7 +1405,7 @@ function ColumnButton({
 }
 
 /** 17px box, 5px radius — the same checkbox the contacts table draws. */
-function Box({
+export function Box({
   checked,
   mixed = false,
   onClick,
@@ -1479,7 +1479,7 @@ function Switch({
   );
 }
 
-function GhostButton({
+export function GhostButton({
   children,
   disabled = false,
   onClick,
@@ -1500,7 +1500,7 @@ function GhostButton({
   );
 }
 
-function SecondaryButton({
+export function SecondaryButton({
   children,
   onClick,
 }: {
@@ -1518,7 +1518,7 @@ function SecondaryButton({
   );
 }
 
-function PrimaryButton({
+export function PrimaryButton({
   children,
   disabled = false,
   onClick,

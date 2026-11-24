@@ -5,6 +5,7 @@ import { hashId } from "@/lib/account-color";
 import { useTheme } from "@/components/theme/theme-provider";
 import { applyBrand, useBrand } from "./brand-store";
 import { useBrandLogo } from "@/components/branding/branding-applier";
+import { useBrandingOptional } from "@/components/branding/branding-provider";
 import { guardNavigation } from "@/components/shell/navigation-guard";
 import {
   accounts as allAccounts,
@@ -261,7 +262,23 @@ export function useAccounts({
    */
   const { uploads, avatars, names } = useBrand();
   // Agency branding's logo (light/dark by surface) wins; uploads are the fallback.
-  const brandLogo = useBrandLogo();
+  const brandLogoRaw = useBrandLogo();
+  /*
+   * "Sidebar icon shows: Avatar" (Nov 24): an uploaded square icon is set
+   * aside and the account wears its initials avatar everywhere instead.
+   */
+  const iconAvatar = useBrandingOptional()?.proto.iconDisplay === "avatar";
+  const brandLogo = React.useCallback(
+    (a: Account): Account => {
+      const b = brandLogoRaw(a);
+      if (!iconAvatar || !b.logoUploaded) return b;
+      const words = b.name.trim().split(/\s+/);
+      const initials =
+        b.logo.initials ?? (words.length > 1 ? words[0]![0]! + words[1]![0]! : words[0]!.slice(0, 2)).toUpperCase();
+      return { ...b, logoSrc: undefined, logoUploaded: false, logo: { ...b.logo, initials, brandTile: true } };
+    },
+    [brandLogoRaw, iconAvatar],
+  );
   /** Accounts made in this session, oldest first. */
   const [created, setCreated] = React.useState<readonly Account[]>([]);
   const branded = React.useMemo(() => {

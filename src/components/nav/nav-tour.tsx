@@ -909,9 +909,16 @@ const STEPS = {
       (see INSIDE_HOLD) and spends itself entirely on the pin.
     */
     title: "Pin what you use most",
-    body: "Click any pin to keep it at the top of Recents.",
+    /*
+      "The top of the sidebar", not "the top of Recents" (Nov 24).
+
+      Recents is gone by default — see RECENTS_REACHES — so the card was
+      naming a block that is not on screen, directly above the block the pin
+      actually lands in. The place is what the reader can see.
+    */
+    body: "Click any pin to keep it at the top of the sidebar.",
     doBody: () =>
-      `Click the pin beside ${subProductName() ?? "a product"} to keep it at the top of Recents.`,
+      `Click the pin beside ${subProductName() ?? "a product"} to keep it at the top of the sidebar.`,
     side: "right",
     /* An icon-sized target: it gets the highlight ring as well as the arrow. */
     small: true,
@@ -935,46 +942,37 @@ const STEPS = {
       if (!pressed(pin)) press(pin);
     },
   },
-  "gs-all-products": {
-    id: "gs-all-products",
-    title: "Search all products",
-    body: "Click here to search for any product.",
-    doBody: "Click All products to search for any product.",
-    side: "right",
-    expand: true,
-    flyout: null,
-    find: () => visible(RECENTS_PANEL) ?? viewAllButton(),
-    done: () => visible(RECENTS_PANEL) !== null,
-    /*
-      No `perform`, so Next simply moves on. Ashwin, Nov 18.
-
-      It used to open the panel, switch to the All products tab, hold it for
-      a beat and shut it again — about 1.8 seconds in which the reader has
-      pressed Next and nothing has arrived. That pause reads as the tour
-      hanging rather than as a demonstration, which is the worst thing a
-      step between two others can do.
-
-      `done` still watches for the panel, so a reader who opens it THEMSELVES
-      is carried on by their own click, and the card points at the row either
-      way. What is gone is the version where Next does it for you.
-    */
-  },
+  /*
+   * "gs-all-products" was here, and is gone (Nov 24).
+   *
+   * It taught the panel behind All products as the way to find a product.
+   * With recently-visited removed by default that is no longer true — the
+   * field is, and the step after this one says so — so the flow spent a
+   * quarter of itself on a second, smaller door to the same place. The row
+   * still works and the full flow still explains it; see GET_STARTED_SHORT.
+   */
   "gs-find": {
     id: "gs-find",
     /*
-      Two promises, each as broad as it really is. Ashwin, Nov 18.
+      One promise, as broad as it really is. Ashwin, Nov 18 / Nov 24.
 
-      The old pair listed the corpus — "every page, contact, and setting" —
-      which sounds complete and is not: the moment a reader thinks of a
-      fifth kind of thing, the sentence has told them it is not in there.
+      The old copy listed the corpus — "every page, contact, and setting" —
+      which sounds complete and is not: the moment a reader thinks of a fifth
+      kind of thing, the sentence has told them it is not in there.
       "Anything" is both shorter and more honest about what the field does.
 
-      Ask AI gets the same treatment on the other axis. It was described as
-      answering and "taking on tasks", which undersells it to anyone
-      skim-reading; the point is that it ACTS, so the card says so.
+      Products are named anyway, and only because this step now stands where
+      All products stood: a reader who was about to be shown a product
+      directory needs telling that the field covers it. Named as an INSTANCE
+      of anything — "including products" — rather than as a list that starts
+      over again.
+
+      Ask AI left this card on Nov 24 and became the step after it. Two
+      promises in one card made the second read as a footnote to the first,
+      and Ask AI acting on your behalf is not a footnote to a search field.
     */
-    title: "Search or ask AI",
-    body: "Press ⌘K to search anything in the product. Use Ask AI to automate tasks.",
+    title: "Search anything",
+    body: "Press ⌘K to search anything, including products.",
     side: "bottom",
     flyout: null,
     find: () => visible(SEARCH),
@@ -1310,8 +1308,25 @@ const FLOWS: Record<TourFlowId, readonly StepId[]> = {
 /** Editing at Short length: 4 steps. See NAV_TOUR_LENGTHS. */
 const EDITING_SHORT: readonly StepId[] = ["ed-rows", "ed-add", "ed-save", "ed-layouts"];
 
-/** Get started at Short length: 4 steps. See NAV_TOUR_LENGTHS. */
-const GET_STARTED_SHORT: readonly StepId[] = ["gs-welcome", "gs-inside", "gs-all-products", "gs-find"];
+/**
+ * Get started at Short length: 4 steps. See NAV_TOUR_LENGTHS.
+ *
+ * All products is out (Nov 24). With recently-visited gone by default, the
+ * panel behind it is no longer the place the nav sends you to find a product
+ * — the field is, and it searches products too. A step teaching a second door
+ * to a smaller version of what the step after it teaches was spending a
+ * quarter of the flow on a detour.
+ *
+ * Its row is still there, still opens, and is still where the full flow
+ * explains it. What went is the claim that it is how you find things.
+ *
+ * Search and Ask AI then split, because the step that held both was selling
+ * two different promises in one card and the second one was reading as a
+ * footnote to the first. `ask-ai` is the full flow's own step, reused rather
+ * than restated: it is a single gesture already, so there is nothing to fold,
+ * and one card for one claim is the whole point of the short flow.
+ */
+const GET_STARTED_SHORT: readonly StepId[] = ["gs-welcome", "gs-inside", "gs-find", "ask-ai"];
 
 /** The single tour: getting started, pinning, then editing, cut down. */
 const SINGLE: readonly StepId[] = [
@@ -1689,9 +1704,15 @@ export function NavTour({
   onClose,
   onLearnMore,
   onHoldRail,
+  startAt = 0,
+  onIndex,
 }: {
   steps: TourStep[];
   ctx: TourContext;
+  /** The step to open on: 0, or where a flow put on hold left off. */
+  startAt?: number;
+  /** The step showing, for the shell to resume from. See `suspended`. */
+  onIndex?: (index: number) => void;
   /**
    * Closed, finished, or ended by its own action. The flow is seen.
    * `dismissed` is X or Esc — closed before it was over.
@@ -1723,7 +1744,9 @@ export function NavTour({
   } =
     effective;
   const { state: layout, setEditing, discardEditing } = useNavLayout();
-  const [index, setIndex] = React.useState(0);
+  const [index, setIndex] = React.useState(() => Math.min(startAt, steps.length - 1));
+  const reportIndex = React.useEffectEvent((i: number) => onIndex?.(i));
+  React.useEffect(() => reportIndex(index), [index]);
   const step = steps[Math.min(index, steps.length - 1)]!;
   const last = index >= steps.length - 1;
 
@@ -2430,10 +2453,21 @@ interface ToursState {
   queue: readonly TourFlowId[];
   /** Bumped per run, so a flow that runs twice starts from its first step. */
   run: number;
+  /*
+   * A flow put on hold by Sub-accounts, and the step it was on. Sub-accounts
+   * answers a gesture made just now, so it shows at that moment rather than
+   * queueing behind Get started; the flow it interrupted comes back where it
+   * left off once Sub-accounts is closed and the pointer is off the rail.
+   * Ashwin, Nov 24.
+   */
+  suspended: { flow: TourFlowId; at: number } | null;
+  /** The step the active run opens on: a resumed flow's, else 0. */
+  startAt: number;
 }
 
 type ToursAction =
-  | { type: "trigger"; flow: TourFlowId }
+  | { type: "trigger"; flow: TourFlowId; at?: number }
+  | { type: "resume" }
   | { type: "close"; flow: TourFlowId }
   | { type: "handoff"; flow: TourFlowId }
   | { type: "start"; flow: TourFlowId }
@@ -2441,12 +2475,12 @@ type ToursAction =
   | { type: "replay" }
   | { type: "closeAll" };
 
-const NO_TOURS: ToursState = { seen: [], active: null, queue: [], run: 0 };
+const NO_TOURS: ToursState = { seen: [], active: null, queue: [], run: 0, suspended: null, startAt: 0 };
 
 /** The next queued flow, as the active one. */
 function advance(state: ToursState, seen: readonly TourFlowId[]): ToursState {
   const [active = null, ...queue] = state.queue;
-  return { seen, active, queue, run: state.run + 1 };
+  return { ...state, seen, active, queue, run: state.run + 1, startAt: 0 };
 }
 
 function tours(state: ToursState, action: ToursAction): ToursState {
@@ -2466,9 +2500,20 @@ function tours(state: ToursState, action: ToursAction): ToursState {
        * round again on the next hover would be nagging.
        */
       const seen = flow === "subAccounts" ? [...state.seen, flow] : state.seen;
+      // Sub-accounts takes over now; what was up waits on hold. See `suspended`.
+      if (flow === "subAccounts" && state.active && state.active !== "editing" && !state.suspended) {
+        return {
+          ...state,
+          seen,
+          suspended: { flow: state.active, at: action.at ?? 0 },
+          active: flow,
+          run: state.run + 1,
+          startAt: 0,
+        };
+      }
       return state.active
         ? { ...state, seen, queue: [...state.queue, flow] }
-        : { ...state, seen, active: flow, run: state.run + 1 };
+        : { ...state, seen, active: flow, run: state.run + 1, startAt: 0 };
     }
     case "close": {
       const seen = state.seen.includes(action.flow)
@@ -2477,14 +2522,26 @@ function tours(state: ToursState, action: ToursAction): ToursState {
       if (state.active !== action.flow) {
         return { ...state, seen, queue: state.queue.filter((f) => f !== action.flow) };
       }
+      // Nothing up until the flow on hold resumes. See NavTours.
+      if (state.suspended) return { ...state, seen, active: null };
       return advance(state, seen);
     }
+    case "resume":
+      return state.suspended && !state.active
+        ? {
+            ...state,
+            active: state.suspended.flow,
+            startAt: state.suspended.at,
+            suspended: null,
+            run: state.run + 1,
+          }
+        : state;
     case "handoff": {
       const seen =
         state.active && !state.seen.includes(state.active)
           ? [...state.seen, state.active]
           : state.seen;
-      return { ...state, seen, active: action.flow, run: state.run + 1 };
+      return { ...state, seen, active: action.flow, run: state.run + 1, startAt: 0 };
     }
     case "start": {
       /*
@@ -2498,11 +2555,16 @@ function tours(state: ToursState, action: ToursAction): ToursState {
         (f) => f !== flow && f !== state.active,
       );
       if (state.active && state.active !== flow) seen.push(state.active);
+      // A flow on hold is let go, the same as one that was up.
+      const held = state.suspended?.flow;
+      if (held && held !== flow && !seen.includes(held)) seen.push(held);
       return {
         seen,
         active: flow,
         queue: state.queue.filter((f) => f !== flow),
         run: state.run + 1,
+        suspended: null,
+        startAt: 0,
       };
     }
     case "leaveEdit": {
@@ -2517,7 +2579,7 @@ function tours(state: ToursState, action: ToursAction): ToursState {
     case "replay":
       return { ...NO_TOURS, run: state.run + 1 };
     case "closeAll":
-      return { seen: Object.keys(FLOWS) as TourFlowId[], active: null, queue: [], run: state.run + 1 };
+      return { ...NO_TOURS, seen: Object.keys(FLOWS) as TourFlowId[], run: state.run + 1 };
   }
 }
 
@@ -2700,12 +2762,17 @@ export function NavTours({
    * resting on the rail about as long as the rail takes to open by itself.
    * Before that, nothing about sub-accounts is said at all.
    */
+  // The step showing, so Sub-accounts can put it on hold there.
+  const indexRef = React.useRef(0);
+  const trackIndex = React.useCallback((i: number) => {
+    indexRef.current = i;
+  }, []);
   const accountsDue = on && flows && !state.seen.includes("subAccounts");
   React.useEffect(() => {
     if (!accountsDue) return;
     let over: Element | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const due = () => dispatch({ type: "trigger", flow: "subAccounts" });
+    const due = () => dispatch({ type: "trigger", flow: "subAccounts", at: indexRef.current });
     const entry = (e: Event) =>
       e.target instanceof Element && !e.target.closest("[data-nav-tour]")
         ? e.target.closest(ACCOUNTS_ENTRY)
@@ -2728,6 +2795,38 @@ export function NavTours({
       document.removeEventListener("pointerdown", onDown);
     };
   }, [accountsDue]);
+
+  /*
+   * The flow Sub-accounts put on hold comes back once Sub-accounts is closed
+   * and the pointer is off the rail and switcher: closed from its card it
+   * resumes at once; closed by picking a sub-account in the rail, it waits
+   * for the pointer to leave. See `suspended`. Ashwin, Nov 24.
+   */
+  const overEntry = React.useRef(false);
+  React.useEffect(() => {
+    const onOver = (e: PointerEvent) => {
+      overEntry.current =
+        e.target instanceof Element &&
+        !e.target.closest("[data-nav-tour]") &&
+        !!e.target.closest(ACCOUNTS_ENTRY);
+    };
+    document.addEventListener("pointerover", onOver);
+    return () => document.removeEventListener("pointerover", onOver);
+  }, []);
+  const awaitingResume = on && !state.active && !!state.suspended;
+  React.useEffect(() => {
+    if (!awaitingResume) return;
+    if (!overEntry.current) {
+      dispatch({ type: "resume" });
+      return;
+    }
+    const onOver = (e: PointerEvent) => {
+      if (e.target instanceof Element && e.target.closest(ACCOUNTS_ENTRY)) return;
+      dispatch({ type: "resume" });
+    };
+    document.addEventListener("pointerover", onOver);
+    return () => document.removeEventListener("pointerover", onOver);
+  }, [awaitingResume, dispatch]);
 
   // Editing: edit mode opening, however it was opened.
   const wasEditing = React.useRef(editing);
@@ -2797,10 +2896,13 @@ export function NavTours({
           key={`${run}-${navTourStyle}-${navTourLength}-${navTourLayouts}-${navTourProductsOpen}-${navTourSearchOpen}-${navTourAskAiOpen}-${navTourApplySteps}-${treeSearchPlace}`}
           steps={steps}
           ctx={ctx}
+          startAt={state.startAt}
+          onIndex={trackIndex}
           onClose={(how) => {
             markClosed();
             dispatch({ type: "close", flow: active });
-            if (how === "dismissed" && navTourRestart === "toast") {
+            // With a flow on hold coming back, a "Tour closed." toast would offer the wrong one.
+            if (how === "dismissed" && navTourRestart === "toast" && !state.suspended) {
               setClosed({ flow: active, id: run });
             }
           }}

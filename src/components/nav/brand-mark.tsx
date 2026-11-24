@@ -103,7 +103,7 @@ export function BrandMark({
   // The agency's full logo replaces its NAME, with or without the square
   // mark beside it (Nov 20). Sub-accounts keep their name as text for now
   // (Ashwin, Nov 23) unless the header shows its mark.
-  if (wordmark && !markAccount && (withMark || account.id === "agency")) {
+  if (wordmark && !markAccount && (withMark || account.id === "agency" || account.wordmarkUploaded)) {
     return (
       <span className="flex min-w-0 items-center" title={alt}>
         {/*
