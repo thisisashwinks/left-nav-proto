@@ -332,6 +332,17 @@
   background-color: var(--brd-rail-sel-bg) !important;
   box-shadow: inset 0 0 0 1.5px var(--brd-rail-indicator) !important;
 }
+/* The agency's mark is square (Ashwin, Nov 24): no round fill behind it.
+   Selected, it gets a square ring hugging the mark instead, and the mark —
+   logo, avatar, or initials — fills its square. */
+:root[data-branding="on"] [data-account-rail] button[aria-current="true"][data-rail-square] {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+:root[data-branding="on"] [data-account-rail] button[aria-current="true"][data-rail-square] [data-rail-mark] {
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px var(--brd-rail-bg), 0 0 0 3.5px var(--brd-rail-indicator);
+}
 
 /* The bar's row. On the plane the bar is transparent, so the row paints it;
    inside the joined card the bar paints `--hdr-bg` itself. */
