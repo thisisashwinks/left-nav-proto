@@ -402,6 +402,18 @@ export interface NavLayoutState {
    */
   promoAfter?: string | null;
   /**
+   * Where the Launchpad ROW sits among the top-level rows, when the account
+   * has moved it: the id of the row it follows, or null for first.
+   *
+   * `undefined` is not "first" here — it means the account has never placed
+   * it, and the row falls back to whatever `launchpadPosition` says. That
+   * three-way distinction is the whole point of the field: the panel's
+   * position is the product's answer, this is the account's, and clearing
+   * this is how an account goes back to the shipped one. See
+   * LAUNCHPAD_POSITIONS. Ashwin, Nov 25.
+   */
+  launchpadAfter?: string | null;
+  /**
    * Featured products filed into their home category as ordinary L2 items
    * ("Featured: promo in L2" → Row at bottom of list), by page id. Filed once,
    * at the end of the category; from then on each is a product like any

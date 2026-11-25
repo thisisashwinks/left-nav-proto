@@ -221,6 +221,12 @@ export function AccountLogo({
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 backgroundRepeat: "no-repeat",
+                // An uploaded sidebar icon gets a hairline edge so a
+                // transparent, white, or pale icon keeps its outline (proto
+                // iconEdge, Nov 25, 2026; --icon-edge set by BrandingApplier).
+                ...(logo.coverSrc
+                  ? { outline: "1px solid var(--icon-edge, transparent)", outlineOffset: -1 }
+                  : {}),
               }
             : {
                 backgroundColor: "#ffffff",

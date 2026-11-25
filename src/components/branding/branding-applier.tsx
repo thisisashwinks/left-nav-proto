@@ -169,9 +169,8 @@ export function useModeFor(theme: BrandingTheme | null): Mode {
   const { effective } = useTheme();
   const systemDark = useSystemDark();
   const previewMode = ctx?.previewMode ?? null;
-  // Minimal theme set (Nov 24, 2026): every theme is light — no color mode.
-  const minimal = ctx?.proto.themeSet === "minimal";
-  if (minimal && theme && !isDefaultTheme(minimalTheme(theme))) return "light";
+  // Every theme is light (Nov 25, 2026): no theme set offers color mode.
+  if (ctx && theme && !isDefaultTheme(minimalTheme(theme, true))) return "light";
   if (previewMode) return previewMode;
   if (!theme || isDefaultTheme(theme)) return effective.appTheme === "dark" ? "dark" : "light";
   return resolveAppearance(theme.appearance as Appearance, systemDark);
@@ -197,12 +196,9 @@ export interface LiveChrome {
 export function useLiveChrome(): LiveChrome {
   const { live, proto } = useBranding();
   const { activeThemeAccount } = useTheme();
-  // Minimal theme set: paint light, no gradient, default font, whatever was saved.
+  // Always light, no gradient; Minimal also paints the default font.
   const minimal = proto.themeSet === "minimal";
-  const resolved = (st: typeof live) => {
-    const t = resolveTheme(st, activeThemeAccount);
-    return minimal ? minimalTheme(t) : t;
-  };
+  const resolved = (st: typeof live) => minimalTheme(resolveTheme(st, activeThemeAccount), !minimal);
   const mode = useModeFor(resolved(live));
   const { railStep, darkStrength } = proto;
   return React.useMemo(() => {
@@ -434,7 +430,7 @@ export function BrandingApplier(): null {
    * default theme. One flag per property — an unset one leaves the nav's own
    * value alone (see branding.css "Extended theme").
    */
-  const extras = proto.themeSet === "extended" ? theme.extras : undefined;
+  const extras = proto.themeSet === "extended" || proto.themeSet === "advanced" ? theme.extras : undefined;
   const fontSize = extras?.fontSize, textColor = extras?.textColor;
   const iconColor = extras?.iconColor, radius = extras?.radius;
   React.useEffect(() => {
@@ -459,6 +455,17 @@ export function BrandingApplier(): null {
       }
     };
   }, [fontSize, textColor, iconColor, radius]);
+
+  // Border round uploaded sidebar icons (proto iconEdge, Nov 25, 2026).
+  const iconEdge = proto.iconEdge;
+  React.useEffect(() => {
+    const root = document.documentElement;
+    if (iconEdge === "none") root.style.removeProperty("--icon-edge");
+    else root.style.setProperty("--icon-edge", `var(--hr-${iconEdge})`);
+    return () => {
+      root.style.removeProperty("--icon-edge");
+    };
+  }, [iconEdge]);
 
   // Unmount: leave the document as it found it.
   React.useEffect(

@@ -246,7 +246,10 @@ export function GuideAccordion({
   icon,
   children,
   defaultOpen = false,
+  openTitle,
 }: {
+  /** Title while open, when it should change (e.g. "Hide …"). */
+  openTitle?: string;
   title: string;
   hint?: string;
   icon?: React.ReactNode;
@@ -266,7 +269,7 @@ export function GuideAccordion({
       >
         {icon}
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-[14px] leading-[20px] font-medium text-pg-heading">{title}</span>
+          <span className="text-[14px] leading-[20px] font-medium text-pg-heading">{open && openTitle ? openTitle : title}</span>
           {hint ? <span className="text-[13px] leading-[18px] text-pg-muted">{hint}</span> : null}
         </span>
         <ChevronDown
@@ -300,7 +303,8 @@ const Badge = ({ ok }: { ok: boolean }) => (
 export function LogoGuidelinesAccordion() {
   return (
     <GuideAccordion
-      title="Logo guidelines"
+      title="Show logo guidelines"
+      openTitle="Hide logo guidelines"
       hint="Horizontal, about 4:1. See what works best."
       icon={<Eye size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />}
     >

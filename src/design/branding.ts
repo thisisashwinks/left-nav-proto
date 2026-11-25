@@ -473,11 +473,103 @@ export const ONBOARDING_LOGO_GUIDE_LABELS: Record<OnboardingLogoGuide, string> =
   button: "Behind a button",
 };
 
-export type ThemeSet = "minimal" | "full" | "extended";
+/**
+ * What a sub-account's logo uploads do to its sidebar (Nov 25, 2026, Ashwin).
+ *  update  The default: the full logo, sidebar icon, and avatar show in the
+ *          sidebar, rail, and header as soon as they are saved.
+ *  keep    Saved on Business profile, but the sidebar stays as it is.
+ */
+/**
+ * A sub-account header once it has a full logo (Nov 25, 2026, Ashwin):
+ *  logo  The full logo replaces the name.
+ *  both  The default. The full logo, with the name under it, above search.
+ *  name  The name only, as text.
+ */
+export type SubHeaderShows = "logo" | "both" | "name";
+export const SUB_HEADER_SHOWS_LABELS: Record<SubHeaderShows, string> = {
+  logo: "Logo only",
+  both: "Logo and name",
+  name: "Name only",
+};
+
+/**
+ * "Logo and name" arrangement (Nov 25, 2026, Ashwin):
+ *  name-top  The name above the logo.
+ *  logo-top  The logo above the name (the default, as first built).
+ *  side      Side by side; the name truncates, full name on hover.
+ */
+export type SubHeaderLayout = "name-top" | "logo-top" | "side";
+export const SUB_HEADER_LAYOUT_LABELS: Record<SubHeaderLayout, string> = {
+  "name-top": "Name above logo",
+  "logo-top": "Logo above name",
+  side: "Side by side",
+};
+
+/**
+ * The "We adjusted your logo" message (Nov 25, 2026, Ashwin) — shown when
+ * "Fix logo edge cases" changed an upload.
+ *  placement  below the row's text, below the whole row (default), or hidden
+ *  style      text, tag, info callout (default), success alert, neutral note
+ *  fixBadge   a wand badge on the preview's corner (default on)
+ *  fixTooltip the message on hover over that badge (default off)
+ */
+export type FixNotePlacement = "text" | "row" | "none";
+export const FIX_NOTE_PLACEMENT_LABELS: Record<FixNotePlacement, string> = {
+  text: "Below text",
+  row: "Below row",
+  none: "Hidden",
+};
+export type FixNoteStyle = "text" | "tag" | "callout" | "success" | "neutral";
+export const FIX_NOTE_STYLE_LABELS: Record<FixNoteStyle, string> = {
+  text: "Text",
+  tag: "Tag",
+  callout: "Callout",
+  success: "Success",
+  neutral: "Neutral",
+};
+
+/**
+ * A hairline round uploaded sidebar icons, agency and sub-account (Nov 25,
+ * 2026, Ashwin): so a transparent, white, or pale icon keeps its edge.
+ */
+export type IconEdge = "none" | "gray-50" | "gray-100" | "gray-200";
+export const ICON_EDGE_LABELS: Record<IconEdge, string> = {
+  none: "None",
+  "gray-50": "Gray 50",
+  "gray-100": "Gray 100",
+  "gray-200": "Gray 200",
+};
+
+export type SubHeaderLogo = "agency" | "sub";
+export const SUB_HEADER_LOGO_LABELS: Record<SubHeaderLogo, string> = {
+  agency: "Agency logo",
+  sub: "Sub-account logo",
+};
+
+export type SubLogoUploads = "update" | "keep";
+export const SUB_LOGO_UPLOADS_LABELS: Record<SubLogoUploads, string> = {
+  update: "Update sidebar",
+  keep: "Keep sidebar as is",
+};
+
+export type ThemeSet = "minimal" | "full" | "extended" | "advanced";
 export const THEME_SET_LABELS: Record<ThemeSet, string> = {
   minimal: "Minimal",
   full: "Full",
   extended: "Extended",
+  advanced: "Advanced",
+};
+
+/**
+ * Advanced (Nov 25, 2026, Ashwin): Minimal until "Advanced options" is
+ * pressed, then everything — all themes, color mode, gradient, font, and the
+ * Extended fields. They open in place below the button (default) or in a
+ * modal, in onboarding, White label, and the theme modals alike.
+ */
+export type AdvancedOpens = "inline" | "modal";
+export const ADVANCED_OPENS_LABELS: Record<AdvancedOpens, string> = {
+  inline: "Expand below",
+  modal: "Modal",
 };
 
 /**
@@ -610,16 +702,58 @@ export interface BrandingProto {
   iconDisplay: IconDisplay;
   /** No square icon: initials on a solid colour from the logo, or a gradient. */
   avatarStyle: AvatarStyle;
-  /** The sidebar icon preview's shape. See IconShape. */
-  iconShape: IconShape;
+  /** Agency sidebar icon preview shape (square by default, like its rail mark). */
+  agencyIconShape: IconShape;
+  /** Sub-account sidebar icon preview shape (circle, like the rail avatars). */
+  subIconShape: IconShape;
+  /** Border round uploaded sidebar icons. See IconEdge. */
+  iconEdge: IconEdge;
   /** Minimal (6–8 light themes, no mode / font / gradient) or Full. See ThemeSet. */
   themeSet: ThemeSet;
+  /** Advanced theme set: options expand below, or open a modal. */
+  advancedOpens: AdvancedOpens;
   /** White label footer: preview-default toggle or Reset button. See ResetControl. */
   resetControl: ResetControl;
   /** Settings: Logo guidelines open as a modal or an accordion. See LogoGuide. */
   logoGuide: LogoGuide;
   /** Onboarding: logo guidelines always shown, or behind a button. */
   onboardingLogoGuide: OnboardingLogoGuide;
+  /**
+   * Logo guidelines (Nov 25, 2026): on (default) shows the do's and don'ts in
+   * onboarding and on White label / Business profile; off hides them.
+   */
+  logoGuides: boolean;
+  /**
+   * Fix logo edge cases ourselves (Nov 25, 2026): light or dark logos get a
+   * contrasting plate, logos on their own box get rounded with a hairline,
+   * tall logos get a taller row. Off by default.
+   */
+  logoAutoFix: boolean;
+  /** Where "We adjusted your logo" shows. See FixNotePlacement. */
+  fixNotePlacement: FixNotePlacement;
+  /** How it looks. See FixNoteStyle. */
+  fixNoteStyle: FixNoteStyle;
+  /** A wand badge on the adjusted logo's corner. */
+  fixBadge: boolean;
+  /** The message as a tooltip on that badge. */
+  fixTooltip: boolean;
+  /** Sub-account logo uploads update the sidebar, or leave it as is. */
+  subLogoUploads: SubLogoUploads;
+  /**
+   * With "Keep sidebar as is": still apply the avatar's initials and colour
+   * (on, default), or not — then Business profile hides the avatar editor.
+   */
+  keepSubAvatar: boolean;
+  /** Sub-account header with a full logo: logo, logo + name, or name. */
+  subHeaderShows: SubHeaderShows;
+  /** "Logo and name": stacked either way, or side by side. */
+  subHeaderLayout: SubHeaderLayout;
+  /**
+   * Which full logo a sub-account header shows (Nov 25, 2026): the AGENCY's
+   * uploaded one with the sub-account name under it (default), or the
+   * sub-account's own. See SubHeaderLogo.
+   */
+  subHeaderLogo: SubHeaderLogo;
   /** What the agency had uploaded before Switchyard — sets up the demo. */
   priorLogos: PriorLogos;
   modeScope: BrandingReach;
@@ -651,11 +785,25 @@ export const DEFAULT_BRANDING_PROTO: BrandingProto = {
   onboardingThemeStep: "themes",
   iconDisplay: "logo",
   avatarStyle: "solid",
-  iconShape: "circle",
+  agencyIconShape: "square",
+  subIconShape: "circle",
+  iconEdge: "gray-50",
   themeSet: "minimal",
+  advancedOpens: "inline",
   resetControl: "toggle",
-  logoGuide: "modal",
+  logoGuide: "accordion",
   onboardingLogoGuide: "accordion",
+  subLogoUploads: "keep",
+  keepSubAvatar: true,
+  logoGuides: true,
+  logoAutoFix: false,
+  fixNotePlacement: "row",
+  fixNoteStyle: "callout",
+  fixBadge: true,
+  fixTooltip: false,
+  subHeaderShows: "both",
+  subHeaderLayout: "logo-top",
+  subHeaderLogo: "agency",
   priorLogos: "none",
   modeScope: "chrome",
   fontScope: "chrome",
@@ -1187,10 +1335,15 @@ export function minimalPresets(logo: readonly BrandingPreset[]): BrandingPreset[
   return [...logo, ...curated].slice(0, MINIMAL_MAX_THEMES);
 }
 
-/** What a theme paints under the minimal set: light, no gradient, default font. */
-export function minimalTheme(t: BrandingTheme): BrandingTheme {
-  if (t.appearance === "light" && !t.gradient && t.font === DEFAULT_FONT_ID) return t;
-  return { ...t, appearance: "light", gradient: false, font: DEFAULT_FONT_ID };
+/**
+ * What a theme paints (Nov 25, 2026): always light, never a gradient — no
+ * theme set offers color mode or the window gradient any more. Minimal also
+ * drops the font; Full, Extended, and Advanced keep it.
+ */
+export function minimalTheme(t: BrandingTheme, keepFont = false): BrandingTheme {
+  const font = keepFont ? t.font : DEFAULT_FONT_ID;
+  if (t.appearance === "light" && !t.gradient && t.font === font) return t;
+  return { ...t, appearance: "light", gradient: false, font };
 }
 
 /** The initials avatar's tile from one colour: flat, or a short diagonal. */

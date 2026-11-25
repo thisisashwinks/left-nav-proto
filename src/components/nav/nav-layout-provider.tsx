@@ -301,6 +301,11 @@ interface NavLayoutContextValue {
   /** Moves Holiday Promos' row to follow `afterId`, or to the top with null. */
   setPromoAfter: (afterId: string | null) => void;
   /**
+   * Place the Launchpad row, or (with `undefined`) hand it back to the theme's
+   * own position. See NavLayoutState.launchpadAfter.
+   */
+  setLaunchpadAfter: (afterId: string | null | undefined) => void;
+  /**
    * Folds every step since `from` into ONE undo offer, under one sentence.
    *
    * For a batch whose steps each have a true but useless name. The picker
@@ -2041,6 +2046,9 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
       setPromoAfter: (afterId) =>
         commit("Moved Holiday Promos", (s) => ({ ...s, promoAfter: afterId })),
+
+      setLaunchpadAfter: (afterId) =>
+        commit("Moved Launchpad", (s) => ({ ...s, launchpadAfter: afterId })),
 
       toggleRowHidden: (id) => {
         const hiding = !isRowHidden(state, id);

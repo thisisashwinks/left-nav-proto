@@ -101,7 +101,10 @@ export function BusinessProfilePage({ account }: { account: Account }) {
   const avatarInitials =
     avatarDraft.initials ??
     (friendly.trim() === account.name ? names[account.id]?.initials ?? account.logo.initials ?? nameInitials : nameInitials);
-  const showAvatarEditor = !shownIcon || proto.iconDisplay === "avatar";
+  // Hidden when the sidebar keeps its look AND the avatar isn't applied
+  // either (proto subLogoUploads "keep" + keepSubAvatar off, Nov 25, 2026).
+  const avatarApplies = proto.subLogoUploads !== "keep" || proto.keepSubAvatar;
+  const showAvatarEditor = avatarApplies && (!shownIcon || proto.iconDisplay === "avatar");
 
   const pickWordmark = async (src: string, fileName?: string) => {
     const [trimmed, name] = await Promise.all([trimLogo(src), logoName(src, fileName)]);
@@ -206,6 +209,7 @@ export function BusinessProfilePage({ account }: { account: Account }) {
               hint="A compact version of your logo, shown in the new sidebar and as your browser tab’s favicon."
               spec="Square · Min 128 × 128 px · Max 2.5 MB"
               aspect="square"
+              owner="sub"
               {...(shownIcon ? { src: shownIcon } : {})}
               fallback={{ ...account.logo, initials: avatarInitials, from: avatarColor, to: avatarColor, brandTile: true }}
               {...(iconError ? { error: iconError } : {})}

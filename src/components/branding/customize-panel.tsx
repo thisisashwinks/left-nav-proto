@@ -28,15 +28,17 @@ import { createPortal } from "react-dom";
 import { ArrowRight, Building2, Eye, LayoutTemplate, X } from "lucide-react";
 import { useBranding } from "@/components/branding/branding-provider";
 import {
-  ColorModeField,
   ContrastWarnings,
   FontField,
   Switch,
   ThemeEditor,
   ThemePicker,
-  useMinimalThemes,
-  useExtendedThemes,
   ExtendedThemeFields,
+  AdvancedOpenProvider,
+  AdvancedOptionsButton,
+  AdvancedAccordion,
+  AdvancedOptionsModal,
+  themeTier,
 } from "@/components/branding/branding-controls";
 import { Section as PageSection } from "@/components/settings/white-label-parts";
 import { Modal } from "@/components/page/modal";
@@ -607,8 +609,12 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
   const scope = React.useMemo<BrandingScope>(() => ({ accountId: null }), []);
   const door = useThemeDoor(scope);
   const disabled = !canEdit;
-  const minimal = useMinimalThemes();
-  const extended = useExtendedThemes();
+  // Advanced theme set (Nov 25, 2026): Minimal until "Advanced options".
+  const [advOpen, setAdvOpen] = React.useState(false);
+  const advanced = proto.themeSet === "advanced";
+  const advInline = proto.advancedOpens === "inline";
+  const shownOpen = advInline && advOpen;
+  const { minimal, extended } = themeTier(proto.themeSet, shownOpen);
   const agencyWide = proto.saveTarget === "agency";
   const [confirming, setConfirming] = React.useState(false);
   const scopeAsk = useThemeScopeAsk() && agencyWide;
@@ -685,7 +691,7 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
         title="Theme"
         sub={
           agencyWide
-            ? `${minimal ? "Sidebar colors" : "Colors, mode, and font"} for your agency. All sub-accounts under it get this theme.`
+            ? `${minimal ? "Sidebar colors" : "Sidebar colors and font"} for your agency. All sub-accounts under it get this theme.`
             : "Your agency's default theme. Sub-accounts on a layout with its own theme keep that one."
         }
         dirty={door.changed}
@@ -718,15 +724,16 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
                 "flex items-center gap-[10px] text-[14px] leading-[20px] text-pg-text",
                 !showDefault && isDefaultTheme(door.value) && "opacity-50",
               )}
-              title={showDefault ? "Turn on to bring your theme back." : "Turn off to preview the default theme."}
+              title={showDefault ? "Off: previewing the original sidebar. Turn on to see yours." : "On: your customized sidebar. Turn off to preview the original."}
             >
               <Switch
-                label="Customizations"
+                label="Customized sidebar"
                 checked={!showDefault}
                 disabled={disabled || (!showDefault && isDefaultTheme(door.value))}
                 onChange={toggleCustom}
               />
-              {showDefault ? "Showing default theme" : "Customizations"}
+              {/* One label either way (Nov 25, 2026): the switch says on or off. */}
+              Customized sidebar
             </label>
           ) : (
             <button
@@ -740,41 +747,47 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
           )
         }
       >
+        <AdvancedOpenProvider value={shownOpen}>
         <div className="flex flex-col [&>*+*]:mt-[16px] [&>*+*]:border-t [&>*+*]:border-pg-border [&>*+*]:pt-[16px]">
-          {minimal ? null : (
-            <ThemePart label="Color mode" hint={`Light, dark, or match this device's setting. ${reach("mode")}`}>
-              <ColorModeField {...field} />
-            </ThemePart>
-          )}
+          {/* No color mode or window gradient in any theme set (Nov 25, 2026). */}
           <ThemePart label="Theme" hint="Pick a theme, or set your own colors. They preview as you edit.">
             <div className="flex flex-col gap-[16px]">
               <ThemePicker {...field} columns={4} />
               {isDefaultTheme(door.value) ? null : <ContrastWarnings theme={door.value} showPass={false} />}
             </div>
           </ThemePart>
-          {minimal ? null : (<>
-          <ThemePart label="Window gradient" hint="One gradient across the sidebar, rail, and top bar.">
-            <label className="flex items-center justify-between gap-[12px] text-[14px] leading-[20px] text-pg-text">
-              Show a window gradient
-              <Switch
-                label="Window gradient"
-                checked={door.value.gradient}
-                disabled={disabled}
-                onChange={(gradient) => door.write({ ...door.value, gradient })}
-              />
-            </label>
-          </ThemePart>
+          {advanced && advInline ? (
+            // A full accordion holding font and the Extended fields (Nov 25, 2026).
+            <AdvancedAccordion open={advOpen} onToggle={() => setAdvOpen((o) => !o)}>
+              <ThemePart label="Font" hint={reach("font")}>
+                <FontField {...field} bare />
+              </ThemePart>
+              <ThemePart label="Extended" hint="Fine-tune the sidebar's text, icons, and corners.">
+                <ExtendedThemeFields {...field} />
+              </ThemePart>
+            </AdvancedAccordion>
+          ) : null}
+          {advanced && !advInline ? (
+            <div className="flex">
+              <AdvancedOptionsButton open={advOpen} inline={false} onClick={() => setAdvOpen((o) => !o)} />
+            </div>
+          ) : null}
+          {minimal || (advanced && advInline) ? null : (<>
           <ThemePart label="Font" hint={reach("font")}>
             <FontField {...field} bare />
           </ThemePart>
           </>)}
-          {extended ? (
+          {extended && !(advanced && advInline) ? (
             <ThemePart label="Extended" hint="Fine-tune the sidebar's text, icons, and corners.">
               <ExtendedThemeFields {...field} />
             </ThemePart>
           ) : null}
         </div>
+        </AdvancedOpenProvider>
       </PageSection>
+      {advanced && !advInline && advOpen ? (
+        <AdvancedOptionsModal {...field} onClose={() => setAdvOpen(false)} />
+      ) : null}
 
       {confirming ? (
         <Modal

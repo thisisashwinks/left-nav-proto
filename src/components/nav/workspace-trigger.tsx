@@ -128,7 +128,7 @@ export function WorkspaceTrigger({
       className={cn(
         // Negative margin cancels the padding, so the hover surface extends
         // around the logo instead of pushing it in from the nav's 12px edge.
-        "group/ws motion-tap flex h-[30px] min-w-0 items-center gap-[5px] rounded-[8px] px-[6px] outline-none active:scale-[0.99]",
+        "group/ws motion-tap flex min-h-[30px] min-w-0 items-center gap-[5px] rounded-[8px] px-[6px] outline-none active:scale-[0.99]",
         // Flush to the nav's edge whenever nothing precedes the name —
         // whether that is because the mark is inside the chip or because
         // there is no mark at all. The middle value only makes sense with a

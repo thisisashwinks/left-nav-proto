@@ -820,3 +820,15 @@
 [data-account-rail]:not([data-nav-overlay]):not([data-rail-painted]) {
   box-shadow: inset -1px 0 0 0 var(--nav-divider);
 }
+
+/* Stacked logo + name in the nav header (Nov 25, 2026): the collapse toggle
+   sits on the first row's midline, not the middle of the whole header.
+   WordmarkWithName publishes --hdr-first-mid; a zero-height flex line at
+   that offset centres the toggle on it. */
+[data-nav-header-row][data-first-mid] > [data-hdr-trailing].contents {
+  display: flex;
+  height: 0;
+  align-items: center;
+  align-self: flex-start;
+  margin-top: var(--hdr-first-mid);
+}

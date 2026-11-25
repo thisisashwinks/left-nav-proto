@@ -2,11 +2,14 @@
 
 import * as React from "react";
 import { useBranding } from "@/components/branding/branding-provider";
-import { ImageUp, Trash2 } from "lucide-react";
+import { Eye, ImageUp, Trash2, Wand2 } from "lucide-react";
+import { useLogoFixNote, useLogoFixes, useSurfaceLuminance } from "@/components/nav/brand-mark";
+import type { FixNoteStyle } from "@/design/branding";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { AccountLogoSpec } from "@/components/accounts/account-logo";
 import { cn } from "@/lib/utils";
 import {
+  GuideAccordion,
   LogoGuidelines,
   LogoGuidelinesButton,
   LogoGuidelinesModal,
@@ -165,7 +168,10 @@ export function BrandAssetRow({
   error,
   compact = false,
   guide = false,
+  owner = "agency",
 }: {
+  /** Whose sidebar icon this is — picks the agency or sub-account shape. */
+  owner?: "agency" | "sub";
   /**
    * Full logo rows: a "Logo guidelines" button under the spec (Nov 24, 2026)
    * — a modal, or an accordion under the row (proto `logoGuide`). Compact
@@ -204,8 +210,22 @@ export function BrandAssetRow({
   // The square asset previews as a circle by default (Nov 24, 2026) — it is
   // the account's avatar. See IconShape.
   const { proto } = useBranding();
-  const round = aspect === "square" && proto.iconShape === "circle";
+  /*
+   * Sidebar icon shape (Nov 25, 2026): agency square (its rail mark is
+   * square), sub-account circle (rail avatars are circles). Separate proto
+   * controls. Either way a dashed drop target with the icon cropped inside.
+   */
+  const shape = aspect === "square" ? (owner === "sub" ? proto.subIconShape : proto.agencyIconShape) : null;
+  const icon = shape !== null;
+  const round = shape === "circle";
+  // Logo guidelines can be switched off (proto logoGuides, Nov 25, 2026).
+  guide = guide && proto.logoGuides;
   const asAccordion = guide && !compact && proto.logoGuide === "accordion";
+  // What the header did to an awkward full logo (proto logoAutoFix).
+  const fixNote = useLogoFixNote(aspect === "wide" ? src : undefined);
+  // The preview shows the same backdrop the header uses.
+  const fixes = useLogoFixes(aspect === "wide" ? src : undefined);
+  const previewPlate = fixes.resolve(useSurfaceLuminance(null, fixes.enabled)).plate;
   const [guideOpen, setGuideOpen] = React.useState(false);
 
   return (
@@ -220,12 +240,15 @@ export function BrandAssetRow({
       question that matters — does this line fit here — so the buttons drop
       under the text in a column and stay on the line at full width.
     */
+    <div className="flex w-full flex-col gap-[12px]">
     <div
       className={cn(
         "flex w-full items-center",
         compact ? "flex-nowrap gap-[14px]" : "flex-wrap gap-x-[20px] gap-y-[12px]",
       )}
     >
+      {/* Relative, so the "adjusted" badge can sit on the preview's corner. */}
+      <div className="relative shrink-0">
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -257,33 +280,40 @@ export function BrandAssetRow({
             when filled, so it always says "drop an image here"; the avatar
             or the upload, cropped to a circle, sits inside it.
           */
-          round
+          icon
             ? "border border-dashed border-pg-border-strong bg-pg-bg"
             : filled
               ? "bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]"
               : "border border-dashed border-pg-border-strong bg-pg-bg",
           over && "shadow-[inset_0_0_0_2px_var(--brand)]",
         )}
+        style={previewPlate ? { background: previewPlate } : undefined}
       >
         {src ? (
           <img
             src={src}
             alt=""
             className={
-              round
-                ? cn("rounded-full object-cover", compact ? "size-[48px]" : "size-[76px]")
+              icon
+                ? cn(round ? "rounded-full" : compact ? "rounded-[8px]" : "rounded-[12px]", "object-cover", compact ? "size-[48px]" : "size-[76px]")
                 : "max-h-full max-w-full object-contain p-[10px]"
             }
+            // The same hairline the rail draws round an uploaded icon.
+            style={icon ? { outline: "1px solid var(--icon-edge, transparent)", outlineOffset: -1 } : undefined}
           />
         ) : aspect === "square" && fallback ? (
           <AccountLogo
             logo={fallback}
-            size={round ? (compact ? 48 : 76) : compact ? 40 : 60}
-            radius={round ? 999 : compact ? 10 : 14}
+            size={icon ? (compact ? 48 : 76) : compact ? 40 : 60}
+            radius={round ? 999 : compact ? 8 : 12}
           />
         ) : (
           <ImageUp size={24} aria-hidden="true" className="text-pg-faint" />
         )}
+      </div>
+      {fixNote && (proto.fixBadge || proto.fixTooltip) ? (
+        <FixBadge note={fixNote} tooltip={proto.fixTooltip} round={round} />
+      ) : null}
       </div>
 
       {/* A floor, so the line wraps instead of crushing the copy. */}
@@ -293,7 +323,10 @@ export function BrandAssetRow({
         </span>
         <p className="text-[13px] leading-[18px] text-pg-muted">{hint}</p>
         <p className="text-[13px] leading-[18px] text-pg-faint">{spec}</p>
-        {guide ? <LogoGuidelinesButton open={asAccordion ? guideOpen : undefined} onClick={() => setGuideOpen((o) => !o)} /> : null}
+        {fixNote && proto.fixNotePlacement === "text" ? (
+          <FixNote note={fixNote} style={proto.fixNoteStyle} className="mt-[4px]" />
+        ) : null}
+        {guide && !asAccordion ? <LogoGuidelinesButton onClick={() => setGuideOpen((o) => !o)} /> : null}
         {error ? (
           <p role="alert" className="text-[13px] leading-[18px] text-[var(--hr-error-600,#d92d20)]">
             {error}
@@ -339,12 +372,115 @@ export function BrandAssetRow({
         onChange={(e) => read(e.target.files?.[0])}
       />
 
-      {asAccordion && guideOpen ? (
-        <div className="motion-panel-in basis-full rounded-[10px] bg-pg p-[16px]">
-          <LogoGuidelines />
-        </div>
-      ) : null}
       {guide && !asAccordion && guideOpen ? <LogoGuidelinesModal onClose={() => setGuideOpen(false)} /> : null}
     </div>
+
+    {/* "We adjusted your logo", under the whole row (proto fixNotePlacement). */}
+    {fixNote && proto.fixNotePlacement === "row" ? <FixNote note={fixNote} style={proto.fixNoteStyle} /> : null}
+
+    {/* Accordion mode: a full-width "Show / Hide logo guidelines" row. */}
+    {asAccordion ? (
+      <GuideAccordion
+        title="Show logo guidelines"
+        openTitle="Hide logo guidelines"
+        icon={<Eye size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />}
+      >
+        <LogoGuidelines />
+      </GuideAccordion>
+    ) : null}
+    </div>
+  );
+}
+
+/**
+ * "We adjusted your logo" (Nov 25, 2026), in one of five treatments —
+ * proto `fixNoteStyle`:
+ *  text     plain primary text with the wand
+ *  tag      a pill
+ *  callout  an info box, primary tint
+ *  success  a green alert with a title
+ *  neutral  a grey note
+ */
+function FixNote({ note, style, className }: { note: string; style: FixNoteStyle; className?: string }) {
+  const body = note.replace(/^We adjusted your logo: /, "").replace(/\.$/, "");
+  const sentence = body.charAt(0).toUpperCase() + body.slice(1);
+  if (style === "text") {
+    return (
+      <p className={cn("flex items-start gap-[6px] text-[13px] leading-[18px] text-[var(--hr-primary-600)]", className)}>
+        <Wand2 size={14} aria-hidden="true" className="mt-[2px] shrink-0" />
+        {note}
+      </p>
+    );
+  }
+  if (style === "tag") {
+    return (
+      <span
+        title={note}
+        className={cn(
+          "inline-flex max-w-full items-center gap-[6px] self-start rounded-full bg-[var(--hr-primary-50)] px-[10px] py-[3px] text-[12px] leading-[16px] font-medium text-[var(--hr-primary-700)] shadow-[inset_0_0_0_1px_var(--hr-primary-200)]",
+          className,
+        )}
+      >
+        <Wand2 size={12} aria-hidden="true" className="shrink-0" />
+        <span className="truncate">Adjusted for readability · {sentence}</span>
+      </span>
+    );
+  }
+  const tone = {
+    callout: {
+      box: "bg-[var(--hr-primary-50)] shadow-[inset_0_0_0_1px_var(--hr-primary-200)]",
+      icon: "text-[var(--hr-primary-600)]",
+      title: "text-[var(--hr-primary-700)]",
+      body: "text-[var(--hr-primary-700)]",
+    },
+    success: {
+      box: "bg-[var(--hr-success-50)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--hr-success-600)_30%,transparent)]",
+      icon: "text-[var(--hr-success-600)]",
+      title: "text-[color:color-mix(in_oklab,var(--hr-success-600)_70%,black)]",
+      body: "text-[color:color-mix(in_oklab,var(--hr-success-600)_60%,black)]",
+    },
+    neutral: {
+      box: "bg-pg shadow-[inset_0_0_0_1px_var(--pg-border)]",
+      icon: "text-pg-muted",
+      title: "text-pg-heading",
+      body: "text-pg-muted",
+    },
+  }[style];
+  return (
+    <div role="status" className={cn("flex items-start gap-[10px] rounded-[8px] px-[12px] py-[10px]", tone.box, className)}>
+      <Wand2 size={16} aria-hidden="true" className={cn("mt-[2px] shrink-0", tone.icon)} />
+      <div className="flex min-w-0 flex-col gap-[2px]">
+        <span className={cn("text-[14px] leading-[20px] font-medium", tone.title)}>We adjusted your logo</span>
+        <span className={cn("text-[13px] leading-[18px]", tone.body)}>{sentence}.</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The corner badge on an adjusted logo's preview (proto `fixBadge`), with
+ * the note as a hover tooltip when `fixTooltip` is on (Nov 25, 2026).
+ */
+function FixBadge({ note, tooltip, round }: { note: string; tooltip: boolean; round: boolean }) {
+  return (
+    <span
+      tabIndex={tooltip ? 0 : -1}
+      aria-label={note}
+      className={cn(
+        "group/fix absolute flex size-[22px] items-center justify-center rounded-full bg-[var(--hr-primary-600)] text-white shadow-[0_0_0_2px_var(--pg-surface),0_2px_4px_rgba(16,24,40,0.16)] outline-none",
+        round ? "top-[0px] right-[0px]" : "-top-[8px] -right-[8px]",
+        tooltip && "cursor-help",
+      )}
+    >
+      <Wand2 size={12} aria-hidden="true" />
+      {tooltip ? (
+        <span
+          role="tooltip"
+          className="pointer-events-none absolute top-1/2 left-[calc(100%+8px)] z-20 w-[240px] -translate-y-1/2 rounded-[8px] bg-[#101828] px-[10px] py-[8px] text-[12px] leading-[17px] font-normal text-white opacity-0 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.08)] transition-opacity group-hover/fix:opacity-100 group-focus-visible/fix:opacity-100"
+        >
+          {note}
+        </span>
+      ) : null}
+    </span>
   );
 }

@@ -5335,85 +5335,178 @@ export const LAUNCHPAD_OFFERED_DEFAULT = true;
 export const LAUNCHPAD_EDIT_SWITCH_DEFAULT = true;
 
 /**
- * How the Launchpad presents itself in the nav. Ashwin, Nov 24.
+ * WHAT the Launchpad is drawn as. Ashwin, Nov 25.
  *
- *  card      Today: the progress card under search, above the tree. The
- *            setup guide as a guide — a title, a meter and a door.
- *  cardFoot  The SAME card, moved to the nav's foot: under the Customize
- *            button, directly above the featured cards. Ashwin, Nov 25.
- *  rowTop    An ordinary L1 row, first in the column, above the categories.
- *  rowAbove  The same row, anchored above Settings with the other chrome.
- *  rowBelow  The same row, under Settings and the Learn row — the last thing
- *            in the column.
+ *  card      The progress card: a title, a meter and a door.
+ *  row       An ordinary nav row.
  *  featured  One of the featured cards at the nav's foot, drawn exactly as
- *            Holiday Promos is: a still, a name, a line and a door. See
- *            NAV_PROMO_PLACEMENTS, which is the same move for a thing that
- *            is also not a product.
+ *            Holiday Promos is — a still, a name, a line and a door. See
+ *            NAV_PROMO_PLACEMENTS, which is the same move for a thing that is
+ *            also not a product.
  *
- * Two questions behind one axis, deliberately. The card has a size and a
- * position and they are not independent: a 3-of-7 meter in a 36px row is not
- * a smaller card, it is a different control, and the foot of the column is
- * not where a zero state's instruction belongs unless it is wearing the
- * featured cards' clothes. So each option names a whole arrangement rather
- * than letting the panel build one that has never been drawn.
+ * Split from WHERE it sits on Nov 25. They were one axis naming five whole
+ * arrangements, on the argument that a card's size and its position are not
+ * independent — true of the two arrangements that existed when it was written,
+ * and false the moment the card could also live at the foot. Named whole
+ * arrangements is a list that grows by multiplication: two more row positions
+ * and it is nine options in a panel, most of them the same two pictures.
  *
- * `cardFoot` is the card's own version of that second argument. It keeps the
- * meter — the thing a row cannot carry — and gives up the position, landing
- * where the nav already keeps things it is offering you rather than things
- * you asked for: on top of the featured cards, in their company. The card is
- * unchanged down there, which is the point of comparing it: the same control
- * reads as an instruction at the top of the column and as an offer at the
- * foot of it, and only its neighbours changed.
- *
- * The three row spots say where setup sits relative to the work. At the top
- * it is the first thing and the most expensive — it costs the row the
- * categories want. Above or below Settings it reads as what it is once an
- * account is running: account business, filed with the other account
- * business, found when looked for rather than every visit.
- *
- * `card` is the default because the prototype's argument is still that a new
- * account needs the meter. The rest are what to compare it against, and the
- * rows in particular are the cheap end: a row is what every other
- * destination in this nav costs.
- *
- * The rows are chrome, not tree rows — the same standing as the Learn row
- * and the companion apps. Launchpad is filed in no bucket by design (see
- * PROPOSED_UNLISTED_IDS) and four separate "what is filed nowhere?" answers
- * in grouping.ts exclude it, so edit mode cannot move, rename or re-icon
- * these rows. Making it a real tree row is a different job.
+ * `featured` takes no position. It is not the card somewhere else, it is a
+ * different drawing of a different thing, and there is exactly one place the
+ * featured deck is.
  */
-export const LAUNCHPAD_SPOTS = [
-  "card",
-  "cardFoot",
-  "rowTop",
-  "rowAbove",
-  "rowBelow",
-  "featured",
-] as const;
-export type LaunchpadSpot = (typeof LAUNCHPAD_SPOTS)[number];
+export const LAUNCHPAD_TREATMENTS = ["card", "row", "featured"] as const;
+export type LaunchpadTreatment = (typeof LAUNCHPAD_TREATMENTS)[number];
 
-export const LAUNCHPAD_SPOT_LABELS: Record<LaunchpadSpot, string> = {
+export const LAUNCHPAD_TREATMENT_LABELS: Record<LaunchpadTreatment, string> = {
   card: "Setup card",
-  cardFoot: "Setup card at the foot",
-  rowTop: "Row at the top",
-  rowAbove: "Row above Settings",
-  rowBelow: "Row below Settings",
+  row: "Nav row",
   featured: "Featured card",
 };
 
-/** Whether this spot draws Launchpad as a plain L1 row. */
-export function launchpadIsRow(spot: LaunchpadSpot): boolean {
-  return spot === "rowTop" || spot === "rowAbove" || spot === "rowBelow";
+/**
+ * WHERE it sits. Ashwin, Nov 25.
+ *
+ *  top            First in the list. For the card that is under search and
+ *                 above the tree; for the row it is the first L1 row.
+ *  promos         In the list, directly under the Holiday Promos row. Rows
+ *                 only, and the row's default — see `launchpadDefaultPosition`.
+ *  aboveSettings  Anchored above Settings with the other chrome.
+ *  belowSettings  Under Settings and the Learn row: the last thing in the
+ *                 column.
+ *  foot           The nav's foot, below the Customize button and on top of the
+ *                 featured cards. Cards only.
+ *
+ * Not every position fits every treatment — `launchpadPositionsFor` is the one
+ * place that answers it. The panel narrows its options to that list, and
+ * `launchpadResolvePosition` catches a pair that has gone stale, so a saved
+ * theme naming `foot` for a row lands somewhere real rather than nowhere.
+ *
+ * What the positions argue about is whether setup is the first thing or a
+ * thing you go and find. At the top it is the most expensive row the nav has.
+ * Under the promos, or filed with Settings, it reads as what it becomes once
+ * an account is running: account business, found when looked for.
+ */
+export const LAUNCHPAD_POSITIONS = [
+  "top",
+  "promos",
+  "aboveSettings",
+  "belowSettings",
+  "foot",
+] as const;
+export type LaunchpadPosition = (typeof LAUNCHPAD_POSITIONS)[number];
+
+export const LAUNCHPAD_POSITION_LABELS: Record<LaunchpadPosition, string> = {
+  top: "Top of the list",
+  promos: "Below Holiday Promos",
+  aboveSettings: "Above Settings",
+  belowSettings: "Below Settings",
+  foot: "Foot, above featured",
+};
+
+/**
+ * Which positions a treatment can actually take.
+ *
+ * The card has two: the head of the column and the foot of it. It cannot sit
+ * among the rows, because a card between two 36px rows is not a position, it
+ * is a different list.
+ *
+ * The row has four, and the first two are IN the list — see `launchpadIsListRow`,
+ * which is what earns the row its grip, its kebab and its own eye. The other
+ * two are chrome beside Settings, where nothing is dragged.
+ *
+ * `featured` has none; the deck is where the deck is.
+ */
+export function launchpadPositionsFor(
+  treatment: LaunchpadTreatment,
+): readonly LaunchpadPosition[] {
+  if (treatment === "card") return ["top", "foot"];
+  if (treatment === "row")
+    return ["top", "promos", "aboveSettings", "belowSettings"];
+  return [];
 }
 
 /**
- * The row spots in column order, for the kebab's Move up and Move down.
+ * Where a treatment lands when the position it was handed does not fit it.
  *
- * One list rather than three comparisons, so "what is above this" is answered
- * in the same place the rows are declared and a fourth spot cannot be added
- * without the menu learning about it.
+ * Not simply the first allowed position: the row's default is `promos`, and
+ * the list is in column order so `top` comes first. Ashwin, Nov 25 — a row
+ * among the categories reads as account business, and the top of the list is
+ * the one place that contradicts it.
  */
-export const LAUNCHPAD_ROW_ORDER = ["rowTop", "rowAbove", "rowBelow"] as const;
+export function launchpadDefaultPosition(
+  treatment: LaunchpadTreatment,
+): LaunchpadPosition {
+  return treatment === "row" ? "promos" : "top";
+}
+
+/** That pair, with a stale position snapped back to a real one. */
+export function launchpadResolvePosition(
+  treatment: LaunchpadTreatment,
+  position: LaunchpadPosition,
+): LaunchpadPosition {
+  const allowed = launchpadPositionsFor(treatment);
+  if (allowed.length === 0) return position;
+  return allowed.includes(position)
+    ? position
+    : launchpadDefaultPosition(treatment);
+}
+
+/**
+ * Whether this pair puts Launchpad IN the account's own list of rows.
+ *
+ * The two in-list positions are what make it a row among rows, and that is
+ * what earns it the full edit bundle: a grip, an icon to change, and an eye of
+ * its own. The chrome positions beside Settings get the kebab's Move and Hide
+ * and no grip — there is nothing on that side of the rule to drag it past.
+ */
+export function launchpadIsListRow(
+  treatment: LaunchpadTreatment,
+  position: LaunchpadPosition,
+): boolean {
+  return treatment === "row" && (position === "top" || position === "promos");
+}
+
+/**
+ * The chrome row positions in column order, for the kebab's Move up / down.
+ *
+ * In-list rows do not use this: they move by `launchpadAfter`, one row at a
+ * time through whatever the account's list actually holds.
+ */
+export const LAUNCHPAD_CHROME_ORDER = [
+  "aboveSettings",
+  "belowSettings",
+] as const;
+
+/**
+ * Whether the Launchpad row may be dragged. Ashwin, Nov 25 — yes.
+ *
+ * On, the row is a member of the list like any other: a grip, Move up and Move
+ * down through the real rows, and an account-level placement that outlives the
+ * panel's preset. Off it is locked where `launchpadPosition` puts it, exactly
+ * as Holiday Promos is under NAV_PROMO_PLACEMENTS `locked` — the row is still
+ * there, still hideable, still re-iconable, it just does not move.
+ *
+ * The question the toggle asks is whether placing the setup guide is the
+ * account's decision or the product's. Locked, every account's Launchpad is in
+ * the same place and a tour can point at it; loose, an admin can file it where
+ * their people will look, and no two accounts agree.
+ */
+export const LAUNCHPAD_ROW_DRAG_DEFAULT = true;
+
+/**
+ * Whether the Launchpad row's glyph can be changed. Ashwin, Nov 25 — yes.
+ *
+ * Separate from the drag switch because they are separate claims. Moving the
+ * row is about the account's own list; changing the Rocket is about the
+ * product's identity, and a build can reasonably want the setup guide to look
+ * the same everywhere while still letting admins file it where they like.
+ *
+ * Off, the kebab simply does not offer Change icon. The row keeps whatever
+ * glyph the theme gives it — see LAUNCHPAD_ROW_TONES for its colour, which is
+ * a different axis and stays live either way.
+ */
+export const LAUNCHPAD_ROW_ICON_DEFAULT = true;
 
 /**
  * How the Launchpad ROW carries its progress. Ashwin, Nov 24.
@@ -8174,8 +8267,14 @@ export interface ThemeState {
    * See LAUNCHPAD_EDIT_SWITCH_DEFAULT.
    */
   launchpadEditSwitch: boolean;
-  /** How the Launchpad presents itself in the nav. See LAUNCHPAD_SPOTS. */
-  launchpadSpot: LaunchpadSpot;
+  /** What the Launchpad is drawn as. See LAUNCHPAD_TREATMENTS. */
+  launchpadTreatment: LaunchpadTreatment;
+  /** Where it sits. See LAUNCHPAD_POSITIONS. */
+  launchpadPosition: LaunchpadPosition;
+  /** Whether the row may be dragged. See LAUNCHPAD_ROW_DRAG_DEFAULT. */
+  launchpadRowDrag: boolean;
+  /** Whether the row's glyph may be changed. See LAUNCHPAD_ROW_ICON_DEFAULT. */
+  launchpadRowIcon: boolean;
   /** What the Launchpad row says about progress. See LAUNCHPAD_ROW_PROGRESS. */
   launchpadRowProgress: LaunchpadRowProgress;
   /** What colour the Launchpad row's glyph and meter are. See LAUNCHPAD_ROW_TONES. */
@@ -9220,8 +9319,11 @@ export const DEFAULT_THEME: ThemeState = {
    * search step is what took its place in the flow, and public/tour/gs-find
    * .mp4 is the clip of that gesture; "ask-ai" has one too, for anyone who
    * wants the panel shown rather than described.
+   *
+   * Nov 25: "gs-find" is off too, at Ashwin's ask — the search step reads
+   * fine as text. Get started is text only; its clips stay on offer per step.
    */
-  navTourClipSteps: ["gs-find", "ed-layouts", "accounts-layouts"],
+  navTourClipSteps: ["ed-layouts", "accounts-layouts"],
   navTourRestart: "off",
   promoGate: "afterOnboarding",
   navTourWatch: "on",
@@ -9261,7 +9363,10 @@ export const DEFAULT_THEME: ThemeState = {
   navFeaturedMediaKind: "video",
   navFeaturedLabel: "nameNew",
   navFeaturedCount: "3",
-  navFeaturedMulti: "deck",
+  // Carousel, not the deck (Ashwin, Nov 25). The deck's stack says "there are
+  // more of these" with the cards themselves; the carousel says it with the
+  // dots and spends the whole width on ONE product. See NAV_FEATURED_MULTIS.
+  navFeaturedMulti: "carousel",
   navFeaturedLead: "creator",
   navFeaturedExplainer: "full",
   navFeaturedPin: "pulse",
@@ -9664,14 +9769,12 @@ export const DEFAULT_THEME: ThemeState = {
   // to the top. See MERGED_PIN_ORDERS.
   mergedPinOrder: "arranged",
   mergedHeading: "recents",
-  // The first login, not the demo: one recent, no pins. See NAV_RECENTS_STARTS.
   /*
-   * First login again, at Ashwin's ask (Nov 24). It was `starter`, the three
-   * pins picked to go with `recentsReach: "none"`; with that reach the
-   * column opens with no Pinned block until something is pinned. See
-   * NAV_RECENTS_STARTS.
+   * Starter pins (Contacts, Calendars, Conversations), back at Ashwin's ask
+   * (Nov 25). It pairs with `recentsReach: "none"`: the column opens with a
+   * Pinned block instead of empty. See NAV_RECENTS_STARTS.
    */
-  navRecentsStart: "fresh",
+  navRecentsStart: "starter",
   /*
    * Off in the merged panel.
    *
@@ -9713,8 +9816,29 @@ export const DEFAULT_THEME: ThemeState = {
   launchpad: false,
   launchpadOffered: LAUNCHPAD_OFFERED_DEFAULT,
   launchpadEditSwitch: LAUNCHPAD_EDIT_SWITCH_DEFAULT,
-  launchpadSpot: "card",
-  launchpadRowProgress: "count",
+  /*
+   * The row, under the promos, with a ring and a tally. Ashwin, Nov 25.
+   *
+   * The card was the default for as long as the argument was "a new account
+   * needs the meter". The row is the answer to the other half of that: a row
+   * is what every other destination in this nav costs, and the setup guide
+   * earning more than a row has to be argued for rather than assumed.
+   *
+   * `promos` rather than `top`, which is launchpadDefaultPosition's call — at
+   * the top it is still the most expensive row the nav has, and under the
+   * promos it reads as the account's own business.
+   *
+   * `ringCount` because the row gives up the card's bar and this is the
+   * nearest thing to it: the ring is the glance and the tally is the fact. It
+   * is also the pair that has to earn its place — three objects after a
+   * one-word label — which is exactly why it should be the one on screen by
+   * default rather than the one you have to go and find.
+   */
+  launchpadTreatment: "row",
+  launchpadPosition: "promos",
+  launchpadRowDrag: LAUNCHPAD_ROW_DRAG_DEFAULT,
+  launchpadRowIcon: LAUNCHPAD_ROW_ICON_DEFAULT,
+  launchpadRowProgress: "ringCount",
   launchpadRowTone: "brand",
   launchpadCardProgress: "bar",
   /*

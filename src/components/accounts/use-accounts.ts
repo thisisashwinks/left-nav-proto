@@ -267,7 +267,27 @@ export function useAccounts({
    * "Sidebar icon shows: Avatar" (Nov 24): an uploaded square icon is set
    * aside and the account wears its initials avatar everywhere instead.
    */
-  const iconAvatar = useBrandingOptional()?.proto.iconDisplay === "avatar";
+  const brandingProto = useBrandingOptional()?.proto;
+  const iconAvatar = brandingProto?.iconDisplay === "avatar";
+  /*
+   * "Sub-account logo uploads: Keep sidebar as is" (Nov 25, 2026): a
+   * sub-account's uploaded full logo, sidebar icon, and avatar are saved on
+   * Business profile but its sidebar, rail, and header keep what they had.
+   * Its name still follows. The agency is unaffected.
+   */
+  const keepSubLogos = brandingProto?.subLogoUploads === "keep";
+  // Keep mode, avatar still applies (proto keepSubAvatar, Nov 25, 2026):
+  // initials and colour reach the sidebar even though the logos don't.
+  const keepSubAvatar = brandingProto?.keepSubAvatar ?? true;
+  const applySub = React.useCallback(
+    (a: Account): Account => {
+      if (!keepSubLogos) return applyBrand(a, uploads, avatars, names);
+      if (keepSubAvatar) return applyBrand(a, {}, avatars, names);
+      const named = names[a.id];
+      return named ? { ...a, name: named.name } : a;
+    },
+    [keepSubLogos, keepSubAvatar, uploads, avatars, names],
+  );
   const brandLogo = React.useCallback(
     (a: Account): Account => {
       const b = brandLogoRaw(a);
@@ -287,9 +307,9 @@ export function useAccounts({
       : allAccounts;
     // A member made nothing, so only the agency's session carries new ones.
     return [...visible, ...(scopeToMember ? [] : created)].map((a) =>
-      brandLogo(applyBrand(a, uploads, avatars, names)),
+      brandLogo(applySub(a)),
     );
-  }, [uploads, avatars, names, scopeToMember, created, brandLogo]);
+  }, [scopeToMember, created, brandLogo, applySub]);
   const brandedAgency = React.useMemo(
     () => brandLogo(applyBrand(agency, uploads, avatars, names)),
     [uploads, avatars, names, brandLogo],

@@ -793,8 +793,48 @@ function FeaturedCarousel({
 }) {
   const cycle = useCycle(list.length);
   const mode = useTheme().effective.navFeaturedCycle;
-  useTimer(cycle.running, 4000, () => cycle.next(1), cycle.front);
+  /*
+   * Which way the last step went, remembered so the animation can follow the
+   * GESTURE rather than the indices. See the feat-slide keyframes.
+   *
+   * A ref, not state: it is written by the thing that causes the re-render and
+   * read while rendering the result, so it must already hold the new value by
+   * the time the effect below runs. As state it would be one render behind and
+   * every step would animate the way the PREVIOUS one did.
+   */
+  const dirRef = React.useRef<1 | -1>(1);
+  const step = React.useCallback(
+    (d: 1 | -1) => {
+      dirRef.current = d;
+      cycle.next(d);
+    },
+    [cycle],
+  );
+  useTimer(cycle.running, 4000, () => step(1), cycle.front);
   const p = list[cycle.front];
+  /*
+   * The card that is leaving, kept on screen for the length of one step.
+   *
+   * A carousel is two cards for 300ms and one card the rest of the time, so
+   * the outgoing one is held here rather than in the list: it is not a
+   * position in the deck any more, it is an animation still running.
+   */
+  const [leaving, setLeaving] = React.useState<{
+    item: FeaturedProduct;
+    dir: 1 | -1;
+  } | null>(null);
+  const shownRef = React.useRef(p);
+  React.useEffect(() => {
+    if (shownRef.current.key === p.key) return;
+    const went = shownRef.current;
+    shownRef.current = p;
+    // Under reduced motion nothing travels, so nothing needs holding.
+    if (cycle.reduced) return;
+    setLeaving({ item: went, dir: dirRef.current });
+    const t = window.setTimeout(() => setLeaving(null), 300);
+    return () => window.clearTimeout(t);
+  }, [p, cycle.reduced]);
+  const forward = (leaving?.dir ?? 1) === 1;
   return (
     <div
       role="group"
@@ -810,12 +850,41 @@ function FeaturedCarousel({
         gap="gap-[6px]"
         onStep={(dir) => {
           cycle.stop();
-          cycle.next(dir);
+          step(dir);
         }}
       >
-        {/* Keyed, so each product fades in rather than its text swapping in place. */}
-        <div key={p.key} className="w-full motion-fade-in">
-          {entry(p)}
+        {/*
+          The travelling pair. `overflow-hidden` so a card leaving does not
+          paint over the rows beside the nav, and the leaver is taken out of
+          flow so the box keeps the height of the card that is arriving —
+          otherwise every step would jolt the foot by the difference between
+          two taglines.
+        */}
+        <div className="relative w-full overflow-hidden">
+          <div
+            key={p.key}
+            className={cn(
+              "w-full",
+              leaving
+                ? forward
+                  ? "feat-slide-in-right"
+                  : "feat-slide-in-left"
+                : "motion-fade-in",
+            )}
+          >
+            {entry(p)}
+          </div>
+          {leaving ? (
+            <div
+              aria-hidden="true"
+              className={cn(
+                "pointer-events-none absolute inset-x-0 top-0",
+                forward ? "feat-slide-out-left" : "feat-slide-out-right",
+              )}
+            >
+              {entry(leaving.item)}
+            </div>
+          ) : null}
         </div>
       </CycleFrame>
     </div>

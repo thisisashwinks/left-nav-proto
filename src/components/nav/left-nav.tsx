@@ -42,8 +42,9 @@ import {
   PRODUCT_SEARCH_SEED,
   SEARCH_REVEAL_PARTS,
   SEARCH_OUT_MS,
-  launchpadIsRow,
-  LAUNCHPAD_ROW_ORDER,
+  launchpadIsListRow,
+  launchpadResolvePosition,
+  LAUNCHPAD_CHROME_ORDER,
   launchpadRowHasCount,
   launchpadRowHasMeter,
 } from "@/design/theme";
@@ -143,6 +144,8 @@ import { FEATURED_PAGES } from "./featured-pages";
 /** Holiday Promos' row id, and its drag payload type. See promoExtras. */
 const PROMO_ID = FEATURED_PAGES.promos!.id;
 const PROMO_MIME = "application/x-holiday-promos";
+/** The Launchpad row's own drag type, so the two never answer each other. */
+const LAUNCHPAD_MIME = "application/x-launchpad-row";
 import { useFeatured } from "./featured";
 import {
   fadeProps,
@@ -642,7 +645,10 @@ export function LeftNav({
     launchpad: launchpadSetting,
     launchpadOffered,
     launchpadEditSwitch,
-    launchpadSpot,
+    launchpadTreatment,
+    launchpadPosition: launchpadPositionSet,
+    launchpadRowDrag,
+    launchpadRowIcon,
     launchpadRowProgress,
     launchpadRowTone,
     navSections,
@@ -703,7 +709,22 @@ export function LeftNav({
    * a theme axis rather than anything in the account's layout — so the nav
    * writes the panel's dial directly. See `launchpadExtras`.
    */
-  const { setLaunchpadSpot } = useTheme();
+  const { setLaunchpadPosition } = useTheme();
+  /**
+   * The position, snapped to one the treatment can actually take.
+   *
+   * Read through the resolver rather than used raw: the two axes are set
+   * independently and a theme can carry a pair that has gone stale — a saved
+   * `foot` with the treatment since moved to `row`. The setter resolves on
+   * write too; this is the belt for anything that got in another way (a
+   * template, a URL, an older saved theme). See LAUNCHPAD_POSITIONS.
+   */
+  const launchpadPosition = launchpadResolvePosition(
+    launchpadTreatment,
+    launchpadPositionSet,
+  );
+  /** Whether Launchpad is a row among the account's own rows. */
+  const launchpadInList = launchpadIsListRow(launchpadTreatment, launchpadPosition);
   // Holiday Promos' glyph, for its edit-mode row. See NAV_PROMO_ICONS.
   const promoGlyph = usePromoGlyph();
   const featuredCount = useFeatured().list.length;
@@ -1728,7 +1749,25 @@ export function LeftNav({
    * account decides whether it is on. Read here rather than up with the other
    * theme values because the account's answer lives in the layout store.
    */
-  const launchpad = launchpadAllowed && !isBlockHidden(state, "launchpad");
+  /*
+   * Hidden by two different mechanisms, because it is two different things.
+   *
+   * In the account's list it is a ROW, and it hides the way every other row in
+   * that list hides — `hiddenRows`, through the row's own eye, staying on
+   * screen faded while editing so the eye can bring it back. Anywhere else it
+   * is a BLOCK, like Recent and the dock, and it hides through `hiddenBlocks`
+   * and the entry cluster's Show / hide menu.
+   *
+   * One switch for both would have had to pick one of those surfaces, and the
+   * loser is a control that does nothing: a row with an eye that the menu also
+   * claims to own, or a menu entry for something that already has a switch on
+   * it. See `presentBlocks`, which drops Launchpad from the menu for exactly
+   * this reason. Ashwin, Nov 25.
+   */
+  const launchpadRowHidden = state.hiddenRows.includes(PROPOSED_HOME_ID);
+  const launchpad =
+    launchpadAllowed &&
+    !(launchpadInList ? launchpadRowHidden : isBlockHidden(state, "launchpad"));
   /*
    * ...and whether the card is where it presents itself.
    *
@@ -1742,7 +1781,8 @@ export function LeftNav({
    * row leaves Quick actions' box behind exactly as hiding the block always
    * did. See LAUNCHPAD_SPOTS.
    */
-  const launchpadInCard = launchpad && launchpadSpot === "card";
+  const launchpadInCard =
+    launchpad && launchpadTreatment === "card" && launchpadPosition === "top";
   /**
    * The same card, at the nav's foot instead of its head. See LAUNCHPAD_SPOTS.
    *
@@ -1757,9 +1797,33 @@ export function LeftNav({
    * past the zero state, and the foot is not far enough away to change that.
    */
   const launchpadAtFoot =
-    launchpad && launchpadSpot === "cardFoot" && !agencyScope;
-  /** Launchpad drawn as a plain L1 row, and where. See LAUNCHPAD_ITEM. */
-  const launchpadRow = launchpad && launchpadIsRow(launchpadSpot);
+    launchpad &&
+    launchpadTreatment === "card" &&
+    launchpadPosition === "foot" &&
+    !agencyScope;
+  /**
+   * Launchpad as a row anchored beside Settings — chrome, not list.
+   *
+   * These two positions sit on the far side of the rule that closes the
+   * account's own tree, with Settings and the Learn row. They get the kebab's
+   * Move and Hide and no grip: there is nothing over there to drag past, and
+   * dragging one of them INTO the list would be a position change the drag
+   * cannot express. See LAUNCHPAD_CHROME_ORDER.
+   */
+  const launchpadChromeRow =
+    launchpad &&
+    launchpadTreatment === "row" &&
+    (launchpadPosition === "aboveSettings" ||
+      launchpadPosition === "belowSettings");
+  /**
+   * Launchpad as a row IN the list, and whether it is drawn right now.
+   *
+   * Faded-but-present while editing when hidden, exactly as the promo row is:
+   * a row whose only switch is on itself has to be on screen to be switched
+   * back on.
+   */
+  const launchpadListShown =
+    launchpadAllowed && launchpadInList && (!launchpadRowHidden || editing);
   /*
    * The card outlives Launchpad.
    *
@@ -2459,78 +2523,271 @@ export function LeftNav({
   };
 
   /**
-   * The Launchpad ROW's edit bundle: hide it, and move it. Ashwin, Nov 25.
+   * The Launchpad row's edit bundle. Ashwin, Nov 25.
    *
-   * The row spots put Launchpad in the column with the categories (`rowTop`)
-   * or with the anchored chrome by Settings. Standing among rows that all
-   * carry a grip and a kebab, a row with neither reads as broken rather than
-   * as special — which is what the Learn row gets away with only because it is
-   * drawn inert and faded, and Launchpad is a destination you can actually be
-   * standing on.
+   * Two shapes, because there are two kinds of Launchpad row and they are
+   * editable in different amounts.
    *
-   * What it does NOT get is the tree's bundle. Launchpad is filed in no bucket
-   * by design (PROPOSED_UNLISTED_IDS), so there is no node to rename, re-icon
-   * or drop into a category, and no drag: the three spots are not three
-   * positions in one list — two of them are on the far side of the Settings
-   * rule, which nothing is dragged across. Move up and Move down walk
-   * LAUNCHPAD_ROW_ORDER instead, which is the same journey with the ends
-   * stopped.
+   * IN THE LIST it is a row among rows and gets the full bundle the promo row
+   * gets: a grip that drags it anywhere among the top-level rows, Move up and
+   * Move down, an eye of its own, and the icon picker. Standing among rows
+   * that all carry a grip and a kebab, a row with neither reads as broken
+   * rather than as special.
    *
-   * Move writes the THEME axis, not the layout store, because the spot is a
-   * prototype dial: the panel and the nav have to agree about where Launchpad
-   * is, and a second copy of that answer in the account's layout would let
-   * them disagree. It is the one row whose kebab changes what the panel says —
-   * worth knowing when reading an undo toast that does not mention it.
+   * BESIDE SETTINGS it is chrome, and the only move available is to the other
+   * chrome position — see LAUNCHPAD_CHROME_ORDER. No grip: the drag would have
+   * to cross the rule that closes the account's tree, and a drop on the far
+   * side of it is a different position, not a different index.
+   *
+   * What neither gets is a rename. Ashwin, Nov 25: the setup guide's name is
+   * the product's, the way the campaign's name is Holiday Promos'. The greyed
+   * pencil says so rather than the label simply being inert — see
+   * `renameBlocked`.
+   *
+   * Both the grip and the icon picker are switchable from the prototype panel
+   * (LAUNCHPAD_ROW_DRAG_DEFAULT, LAUNCHPAD_ROW_ICON_DEFAULT), and the kebab is
+   * assembled from whatever is left on: an action for something the build does
+   * not offer is worse than no menu at all.
    */
   const launchpadExtras = (): Partial<NavRowEdit> => {
-    if (!editing || !launchpadRow) return {};
-    const at = (LAUNCHPAD_ROW_ORDER as readonly string[]).indexOf(launchpadSpot);
-    const move = (to: number) => () =>
-      setLaunchpadSpot(LAUNCHPAD_ROW_ORDER[to]);
+    if (!editing) return {};
+    const iconAction = launchpadRowIcon
+      ? [
+          {
+            id: "icon",
+            label: "Change icon",
+            icon: Image,
+            onSelect: () => {
+              if (menuTrigger) picker.open(PROPOSED_HOME_ID, menuTrigger);
+            },
+          },
+          ...(layout.hasIconOverride(PROPOSED_HOME_ID)
+            ? [
+                {
+                  id: "reset-icon",
+                  label: "Reset icon",
+                  icon: RotateCcw,
+                  onSelect: () => layout.resetIcon(PROPOSED_HOME_ID),
+                },
+              ]
+            : []),
+        ]
+      : [];
+    const openMenu = (trigger: HTMLElement) => {
+      setMenuTrigger(trigger);
+      menu.open(PROPOSED_HOME_ID, trigger);
+    };
+    const pickIcon = launchpadRowIcon
+      ? {
+          onPickIcon: (trigger: HTMLElement) =>
+            picker.open(PROPOSED_HOME_ID, trigger),
+        }
+      : {};
+
+    /* ── Chrome, beside Settings ───────────────────────────────────── */
+    if (launchpadChromeRow) {
+      const at = (LAUNCHPAD_CHROME_ORDER as readonly string[]).indexOf(
+        launchpadPosition,
+      );
+      return {
+        // Never `true`: hiding the block takes the row off the surface
+        // entirely, and it comes back from the entry cluster's Show / hide
+        // menu, which still lists Launchpad at these positions.
+        hidden: false,
+        onToggleHidden: () => layout.toggleBlock("launchpad"),
+        onOpenMenu: openMenu,
+        ...pickIcon,
+        menuActions: [
+          {
+            id: "up",
+            label: "Move up",
+            icon: MoveUp,
+            ...(at > 0
+              ? { onSelect: () => setLaunchpadPosition(LAUNCHPAD_CHROME_ORDER[at - 1]) }
+              : {}),
+          },
+          {
+            id: "down",
+            label: "Move down",
+            icon: MoveDown,
+            ...(at >= 0 && at < LAUNCHPAD_CHROME_ORDER.length - 1
+              ? { onSelect: () => setLaunchpadPosition(LAUNCHPAD_CHROME_ORDER[at + 1]) }
+              : {}),
+          },
+          ...iconAction,
+          {
+            id: "hide",
+            label: "Hide",
+            icon: EyeOff,
+            onSelect: () => layout.toggleBlock("launchpad"),
+          },
+        ],
+      };
+    }
+
+    /* ── In the list ───────────────────────────────────────────────── */
+    if (!launchpadInList) return {};
+    // Placed by the row it follows, so a saved layout carries it. The ids are
+    // the promo-spliced list's, which is why dropping under Holiday Promos
+    // records PROMO_ID and reads back as the panel's `promos`.
+    const afterFor = (index: number) => (index <= 0 ? null : lpOrder[index - 1]);
+    const drag: NavRowDrag | null = !launchpadRowDrag
+      ? null
+      : {
+          /*
+           * Moves between any two top-level rows, categories included, but
+           * never into one: no category's drop handler is involved, the drag
+           * reads the gaps off the rows' midpoints and draws its own line. The
+           * row is not moved until the drop — moving the dragged node mid-drag
+           * ends the drag in Chrome.
+           */
+          onDragStart: (e) => {
+            e.dataTransfer.setData(LAUNCHPAD_MIME, PROPOSED_HOME_ID);
+            e.dataTransfer.setData("text/plain", LAUNCHPAD_ITEM.label);
+            e.dataTransfer.effectAllowed = "move";
+            setLifted(PROPOSED_HOME_ID);
+            /*
+             * Found from the document rather than off a ref.
+             *
+             * This bundle is assembled during render — `menuOpen` builds it to
+             * read the open kebab's actions back — so a ref read anywhere in
+             * it is a render-phase ref read, which is both a lint error and
+             * the thing React 19 warns about. The handler itself only runs on
+             * a drag, long after mount, and there is exactly one nav root.
+             */
+            const root = document.querySelector("[data-nav-root]");
+            let target = launchpadIndex;
+            const rowsNow = () =>
+              root
+                ? [
+                    ...root.querySelectorAll<HTMLElement>(
+                      "[data-drag-row][data-row-id]",
+                    ),
+                  ].filter(
+                    (r) =>
+                      lpIds.has(r.dataset.rowId ?? "") &&
+                      !r.closest("[data-launchpad-row]"),
+                  )
+                : [];
+            const over = (ev: DragEvent) => {
+              if (!ev.dataTransfer?.types.includes(LAUNCHPAD_MIME)) return;
+              ev.preventDefault();
+              ev.stopPropagation();
+              if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
+              const rows = rowsNow();
+              if (rows.length === 0) return;
+              let at = 0;
+              for (const r of rows) {
+                const b = r.getBoundingClientRect();
+                if (ev.clientY > b.top + b.height / 2) at += 1;
+              }
+              target = at;
+              const edge =
+                at === 0
+                  ? rows[0].getBoundingClientRect().top
+                  : rows[at - 1].getBoundingClientRect().bottom;
+              const box = rows[Math.min(at, rows.length - 1)].getBoundingClientRect();
+              setPromoDrop({ top: edge - 1, left: box.left, width: box.width });
+            };
+            const drop = (ev: DragEvent) => {
+              if (!ev.dataTransfer?.types.includes(LAUNCHPAD_MIME)) return;
+              ev.preventDefault();
+              ev.stopPropagation();
+              // `target` counts the rows without Launchpad, which is lpOrder.
+              layout.setLaunchpadAfter(afterFor(target));
+            };
+            /*
+             * Torn down from inside this closure rather than through a ref.
+             *
+             * The promo row keeps its teardown in a `useRef` and pairs it with
+             * `onDragEnd`, which means the bundle reads a ref — and this bundle
+             * is assembled during render (`menuOpen` builds it to read the open
+             * kebab's actions back), so that is a render-phase ref read. One
+             * AbortController owned by the gesture that created it needs no
+             * storage outside the gesture at all.
+             */
+            const ac = new AbortController();
+            const opts = { capture: true, signal: ac.signal };
+            document.addEventListener("dragover", over, opts);
+            document.addEventListener("drop", drop, opts);
+            const end = () => {
+              document.removeEventListener("dragend", end, true);
+              ac.abort();
+              setPromoDrop(null);
+              setLifted(null);
+            };
+            document.addEventListener("dragend", end, true);
+          },
+          onDragOver: () => {},
+          onDragLeave: () => {},
+          onDrop: () => {},
+          // The teardown rides the document's own dragend — see onDragStart.
+          onDragEnd: () => {},
+          over: false,
+          lifted: lifted === PROPOSED_HOME_ID,
+        };
     return {
-      /*
-       * Never `true`: hiding the block takes the row off the surface entirely
-       * (see `launchpad`), so there is no dimmed row left for a lit eye to sit
-       * on. It comes back from the show/hide menu in the entry cluster, which
-       * is where every other block's switch lives — see `presentBlocks`.
-       */
-      hidden: false,
-      onToggleHidden: () => layout.toggleBlock("launchpad"),
-      onOpenMenu: (trigger) => {
-        setMenuTrigger(trigger);
-        menu.open(PROPOSED_HOME_ID, trigger);
-      },
+      ...(drag ? { drag } : {}),
+      hidden: launchpadRowHidden,
+      onToggleHidden: () => layout.toggleRowHidden(PROPOSED_HOME_ID),
+      onOpenMenu: openMenu,
+      ...pickIcon,
       menuActions: [
-        {
-          id: "up",
-          label: "Move up",
-          icon: MoveUp,
-          ...(at > 0 ? { onSelect: move(at - 1) } : {}),
-        },
-        {
-          id: "down",
-          label: "Move down",
-          icon: MoveDown,
-          ...(at >= 0 && at < LAUNCHPAD_ROW_ORDER.length - 1
-            ? { onSelect: move(at + 1) }
-            : {}),
-        },
+        ...(launchpadRowDrag
+          ? [
+              {
+                id: "up",
+                label: "Move up",
+                icon: MoveUp,
+                ...(launchpadIndex > 0
+                  ? { onSelect: () => layout.setLaunchpadAfter(afterFor(launchpadIndex - 1)) }
+                  : {}),
+              },
+              {
+                id: "down",
+                label: "Move down",
+                icon: MoveDown,
+                ...(launchpadIndex < lpOrder.length
+                  ? { onSelect: () => layout.setLaunchpadAfter(afterFor(launchpadIndex + 1)) }
+                  : {}),
+              },
+            ]
+          : []),
+        ...iconAction,
         {
           id: "hide",
-          label: "Hide",
-          icon: EyeOff,
-          onSelect: () => layout.toggleBlock("launchpad"),
+          label: launchpadRowHidden ? "Show" : "Hide",
+          icon: launchpadRowHidden ? Eye : EyeOff,
+          onSelect: () => layout.toggleRowHidden(PROPOSED_HOME_ID),
         },
       ],
     };
   };
 
-  /** The bundle the three row spots hand to NavItemRow. */
-  const launchpadRowEdit = () =>
-    speakingEdit(
-      mergeRowEdit(null, launchpadExtras()),
+  /**
+   * That bundle, as NavItemRow wants it — with the rename stopped.
+   *
+   * The greyed pencil rather than a silently inert label: among rows that can
+   * all be renamed, a label that simply does nothing reads as a bug. Same
+   * treatment, same reason, as Holiday Promos' row. See `renderPromoRow`.
+   */
+  const launchpadRowEdit = () => {
+    const base = mergeRowEdit(null, launchpadExtras());
+    if (!base) return undefined;
+    return speakingEdit(
+      {
+        ...base,
+        pinned: true,
+        renaming: false,
+        renameBlocked: "The setup guide can\u2019t be renamed.",
+        renameOnLabelClick: false,
+        onStartRename: () => {},
+        onCommitRename: () => {},
+        onCancelRename: () => {},
+      },
       PROPOSED_HOME_ID,
     );
+  };
 
   const editExtras = (itemId: string): Partial<NavRowEdit> => {
     if (!editing) return {};
@@ -3149,6 +3406,45 @@ export function LeftNav({
   const promoIndex = promoAfterId && listIds.has(promoAfterId) ? listOrder.indexOf(promoAfterId) + 1 : 0;
   const promoHidden = state.hiddenRows.includes(PROMO_ID);
 
+  /*
+   * The same arithmetic for the Launchpad row, one list further along.
+   *
+   * It counts the rows WITH Holiday Promos already spliced in, because that is
+   * what the reader sees and what the drag measures — and because "below
+   * Holiday Promos" has to be expressible as an `after` id like any other.
+   * That makes the panel's `promos` position and a drop under the promo row
+   * the same fact written the same way, instead of two placements that have to
+   * be kept in agreement. See withLaunchpad.
+   */
+  const promoInList =
+    (navPromoPlacement === "cardRow" || navPromoPlacement === "locked") &&
+    !(navPromoPlacement === "cardRow" && promoHidden && !editing);
+  const promoAt = navPromoPlacement === "locked" ? 0 : promoIndex;
+  const lpOrder = promoInList
+    ? [...listOrder.slice(0, promoAt), PROMO_ID, ...listOrder.slice(promoAt)]
+    : listOrder;
+  const lpIds = new Set(lpOrder);
+  /*
+   * Where the account put it, or — while it has never touched it — where the
+   * theme says. `undefined` is the whole point of the field: see
+   * NavLayoutState.launchpadAfter.
+   *
+   * Locked (drag off), the account's answer is ignored entirely rather than
+   * cleared. Turning drag back on should return the row to where this account
+   * had it, not to the shipped default; a locked prototype run is not an
+   * instruction to forget.
+   */
+  const launchpadAfterId =
+    launchpadRowDrag && state.launchpadAfter !== undefined
+      ? state.launchpadAfter
+      : launchpadPosition === "promos" && promoInList
+        ? PROMO_ID
+        : null;
+  const launchpadIndex =
+    launchpadAfterId && lpIds.has(launchpadAfterId)
+      ? lpOrder.indexOf(launchpadAfterId) + 1
+      : 0;
+
   /**
    * The nav's tail: the rows that belong to no category.
    *
@@ -3523,7 +3819,16 @@ export function LeftNav({
        * LAUNCHPAD_EDIT_SWITCH_DEFAULT.
        */
       case "launchpad":
-        return launchpadAllowed && launchpadEditSwitch;
+        /*
+         * ...but never while it is a row in the list.
+         *
+         * Down there it carries its own eye (see `launchpadExtras`), and a
+         * menu entry for something that already has a switch on it is two
+         * controls for one fact — with the menu's copy being the one that
+         * cannot say which row it means. Ashwin, Nov 25: the row's own
+         * show/hide wins and this drops out automatically.
+         */
+        return launchpadAllowed && launchpadEditSwitch && !launchpadInList;
       /*
         Recent is not offered at all (Sep 30, Ashwin).
         
@@ -5499,7 +5804,68 @@ export function LeftNav({
       return <NavDivider key={entry.id} />;
     }
     if (entry.item.id === PROMO_ID) return renderPromoRow();
+    if (entry.item.id === PROPOSED_HOME_ID) return renderLaunchpadRow();
     return renderRow(entry.item);
+  };
+
+  /**
+   * Launchpad's row, when it rides in the list. See launchpadExtras.
+   *
+   * Its glyph comes through the layout's override map so Change icon sticks,
+   * falling back to the Rocket — the same read `getAppFlyoutItem` does for the
+   * apps row, and the reason the picker needed nothing taught to it: the maps
+   * are keyed by id and this id is just another key.
+   */
+  const renderLaunchpadRow = () => (
+    <div key={PROPOSED_HOME_ID} data-launchpad-row="" className="contents">
+      <NavItemRow
+        item={{
+          ...LAUNCHPAD_ITEM,
+          icon: iconByName(state.icons[PROPOSED_HOME_ID]) ?? LAUNCHPAD_ITEM.icon,
+        }}
+        marking={markFor(
+          here.productId === PROPOSED_HOME_ID && here.childId === null,
+          false,
+          "l1",
+        )}
+        trailing={
+          <LaunchpadRowProgressMark
+            kind={launchpadRowProgress}
+            tone={launchpadRowTone}
+          />
+        }
+        iconInk={LAUNCHPAD_TONE[launchpadRowTone].ink}
+        {...(editing ? { edit: launchpadRowEdit() } : {})}
+        onSelect={() => onSelect?.(PROPOSED_HOME_ID)}
+      />
+    </div>
+  );
+
+  /*
+   * The entry list with Launchpad's row spliced in at its index.
+   *
+   * Runs AFTER withPromo, on the list that already holds the promo row, so
+   * `launchpadAfter` can name it and "below Holiday Promos" needs no special
+   * case. Hidden, it leaves the list outside edit mode and stays faded inside
+   * it, so the row's own eye can bring it back — there is no menu entry for it
+   * any more. See `presentBlocks`.
+   */
+  const withLaunchpad = (list: readonly NavEntry[]): readonly NavEntry[] => {
+    if (!launchpadListShown) return list;
+    const at = launchpadIndex;
+    const out: NavEntry[] = [];
+    let rows = 0;
+    let placed = false;
+    for (const e of list) {
+      if (!placed && e.kind === "item" && rows === at) {
+        out.push({ kind: "item", item: { id: PROPOSED_HOME_ID, label: LAUNCHPAD_ITEM.label } });
+        placed = true;
+      }
+      if (e.kind === "item") rows += 1;
+      out.push(e);
+    }
+    if (!placed) out.push({ kind: "item", item: { id: PROPOSED_HOME_ID, label: LAUNCHPAD_ITEM.label } });
+    return out;
   };
 
   /** Holiday Promos' row. See promoExtras. */
@@ -6471,31 +6837,15 @@ export function LeftNav({
             </div>
           ) : null}
           {/*
-            Launchpad as the first L1 row, when the axis puts it there.
+            Launchpad's in-list row is NOT rendered here any more.
 
-            Above the categories and below the field that filters them, which
-            is where "the first thing in the list" actually is — the blocks
-            further up are surfaces over the catalogue, not members of it.
-
-            Gone under a query, like every other chrome row: it is not in the
-            tree, so nothing filters it, and left standing it would be a row
-            that matched nothing sitting where the matches are.
+            It used to be pinned above the categories by its own render site,
+            which is why it could not be dragged: a row drawn outside the entry
+            list has no index in it. It now rides IN the list, spliced by
+            `withLaunchpad` exactly as Holiday Promos is — which is what gives
+            it a grip, a place among the real rows, and "below Holiday Promos"
+            as an ordinary `after` id rather than a special case.
           */}
-          {launchpadRow && launchpadSpot === "rowTop" && !searchOnly && !treeHits ? (
-            <NavItemRow
-              item={LAUNCHPAD_ITEM}
-              marking={markFor(here.productId === LAUNCHPAD_ITEM.id && here.childId === null, false, "l1")}
-              trailing={
-                    <LaunchpadRowProgressMark
-                      kind={launchpadRowProgress}
-                      tone={launchpadRowTone}
-                    />
-                  }
-              iconInk={LAUNCHPAD_TONE[launchpadRowTone].ink}
-              edit={launchpadRowEdit()}
-              onSelect={() => onSelect?.(PROPOSED_HOME_ID)}
-            />
-          ) : null}
           {columnShowing ? (
             /*
               One category, with the column to itself.
@@ -6593,7 +6943,9 @@ export function LeftNav({
                 without a way back the only route to it is to navigate into it.
               */}
               {/* Holiday Promos rides in the list. See withPromo. */}
-              {searchOnly ? renderSearched(entries) : renderSearched(withPromo(entries))}
+              {searchOnly
+                ? renderSearched(entries)
+                : renderSearched(withLaunchpad(withPromo(entries)))}
               {/* Featured products as rows under the last category. */}
               {searchOnly || editing ? null : <FeaturedListRows />}
               {searchOnly ? null : <FeaturedSlot at="below" agency={agencyScope} />}
@@ -6751,7 +7103,7 @@ export function LeftNav({
                 guide is: something you go and find, not something that greets
                 you. See LAUNCHPAD_SPOTS.
               */}
-              {launchpadRow && launchpadSpot === "rowAbove" && !searchOnly ? (
+              {launchpadChromeRow && launchpadPosition === "aboveSettings" && !searchOnly ? (
                 <NavItemRow
                   item={LAUNCHPAD_ITEM}
                   marking={markFor(here.productId === LAUNCHPAD_ITEM.id && here.childId === null, false, "l1")}
@@ -6793,7 +7145,7 @@ export function LeftNav({
                 still lines up with the section's LAST row — see the effect by
                 `settingsSectionRef`.
               */}
-              {launchpadRow && launchpadSpot === "rowBelow" && !searchOnly ? (
+              {launchpadChromeRow && launchpadPosition === "belowSettings" && !searchOnly ? (
                 <NavItemRow
                   item={LAUNCHPAD_ITEM}
                   marking={markFor(here.productId === LAUNCHPAD_ITEM.id && here.childId === null, false, "l1")}

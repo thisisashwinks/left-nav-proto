@@ -491,6 +491,9 @@ function foldGenericChildren(
  * Labs page is rendered inside this tree — so the provider wraps the whole
  * shell rather than living beside the page that edits it. See `labs-state`.
  */
+/** Where an account lands: the proposed tree's Dashboard. See homeProductId. */
+const PROPOSED_LANDING_ID = "ia-reporting-dashboard";
+
 export function AppShell({ children }: { children?: React.ReactNode }) {
   return (
     <LabsProvider>
@@ -1087,10 +1090,17 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * nav": the proposed tree's first row is AI, whose own first product is called
    * Getting Started, and landing there made Home look like an AI page.
    */
+  /*
+   * Dashboard, not Launchpad, at Ashwin's ask (Nov 25): the account opens on
+   * its Dashboard and Launchpad stays a row you go to. Falls back to
+   * Launchpad, then the first product, for a tree without one.
+   */
   const homeProductId =
-    layout.grouping === "proposed" && productById(PROPOSED_HOME_ID)
-      ? PROPOSED_HOME_ID
-      : groups.find((g) => g.productIds.length > 0)?.productIds[0];
+    layout.grouping === "proposed" && productById(PROPOSED_LANDING_ID)
+      ? PROPOSED_LANDING_ID
+      : layout.grouping === "proposed" && productById(PROPOSED_HOME_ID)
+        ? PROPOSED_HOME_ID
+        : groups.find((g) => g.productIds.length > 0)?.productIds[0];
   /*
    * The page a product opens on, or null for the product's own page.
    *

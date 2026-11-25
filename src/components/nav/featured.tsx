@@ -393,7 +393,7 @@ export function FeaturedProvider({ children }: { children: React.ReactNode }) {
     navFeaturedAgency,
     navFeaturedPromo,
     navPromoPlacement,
-    launchpadSpot,
+    launchpadTreatment,
     launchpadOffered,
     launchpad: launchpadOn,
   } = useTheme().effective;
@@ -448,7 +448,7 @@ export function FeaturedProvider({ children }: { children: React.ReactNode }) {
      * moving it down here never shows a setup guide to an activated account
      * the card would have spared. See LAUNCHPAD_SPOTS.
      */
-    if (launchpadSpot === "featured" && launchpadOffered && launchpadOn)
+    if (launchpadTreatment === "featured" && launchpadOffered && launchpadOn)
       keys.unshift("launchpad");
     return keys.filter((k) => !dismissed.includes(k)).map((k) => FEATURED_PRODUCTS[k]);
   }, [
@@ -458,7 +458,7 @@ export function FeaturedProvider({ children }: { children: React.ReactNode }) {
     navFeaturedLead,
     navFeaturedCount,
     navPromoPlacement,
-    launchpadSpot,
+    launchpadTreatment,
     launchpadOffered,
     launchpadOn,
     dismissed,

@@ -340,8 +340,10 @@ import {
   RAIL_EXPANDED_SHAPES,
   RAIL_EXPANDED_SHAPE_LABELS,
   LAUNCHPAD_CARDS,
-  LAUNCHPAD_SPOTS,
-  LAUNCHPAD_SPOT_LABELS,
+  LAUNCHPAD_TREATMENTS,
+  LAUNCHPAD_TREATMENT_LABELS,
+  LAUNCHPAD_POSITION_LABELS,
+  launchpadPositionsFor,
   LAUNCHPAD_ROW_PROGRESS,
   LAUNCHPAD_ROW_PROGRESS_LABELS,
   LAUNCHPAD_ROW_TONES,
@@ -349,7 +351,7 @@ import {
   launchpadRowHasMeter,
   LAUNCHPAD_CARD_PROGRESS,
   LAUNCHPAD_CARD_PROGRESS_LABELS,
-  launchpadIsRow,
+  launchpadIsListRow,
   NAV_SELECTED_FILLS,
   ADMIN_ACCENTS,
   ADMIN_ACCENT_LABELS,
@@ -702,7 +704,8 @@ import {
   type RailDirectorySpot,
   type RailZoomFit,
   type LaunchpadCard,
-  type LaunchpadSpot,
+  type LaunchpadTreatment,
+  type LaunchpadPosition,
   type LaunchpadRowProgress,
   type LaunchpadRowTone,
   type LaunchpadCardProgress,
@@ -799,10 +802,26 @@ import {
   type IconShape,
   THEME_SET_LABELS,
   type ThemeSet,
+  ADVANCED_OPENS_LABELS,
+  type AdvancedOpens,
   RESET_CONTROL_LABELS,
   type ResetControl,
   LOGO_GUIDE_LABELS,
   type LogoGuide,
+  SUB_LOGO_UPLOADS_LABELS,
+  type SubLogoUploads,
+  ICON_EDGE_LABELS,
+  type IconEdge,
+  FIX_NOTE_PLACEMENT_LABELS,
+  type FixNotePlacement,
+  FIX_NOTE_STYLE_LABELS,
+  type FixNoteStyle,
+  SUB_HEADER_SHOWS_LABELS,
+  type SubHeaderShows,
+  SUB_HEADER_LAYOUT_LABELS,
+  type SubHeaderLayout,
+  SUB_HEADER_LOGO_LABELS,
+  type SubHeaderLogo,
   ONBOARDING_LOGO_GUIDE_LABELS,
   type OnboardingLogoGuide,
   ONBOARDING_STYLE_LABELS,
@@ -1249,8 +1268,14 @@ function NavStructureSection({
     setLaunchpadOffered,
     launchpadEditSwitch,
     setLaunchpadEditSwitch,
-    launchpadSpot,
-    setLaunchpadSpot,
+    launchpadTreatment,
+    setLaunchpadTreatment,
+    launchpadPosition,
+    setLaunchpadPosition,
+    launchpadRowDrag,
+    setLaunchpadRowDrag,
+    launchpadRowIcon,
+    setLaunchpadRowIcon,
     launchpadRowProgress,
     setLaunchpadRowProgress,
     launchpadRowTone,
@@ -3402,37 +3427,97 @@ function NavStructureSection({
           </Note>
 
           {/*
-            And how it presents itself — a whole arrangement per option rather
-            than a size and a position chosen separately, because the two are
-            not independent. See LAUNCHPAD_SPOTS.
+            Two controls, not one. WHAT it is drawn as, and WHERE that sits.
+
+            They were one axis naming five whole arrangements until Nov 25,
+            which worked while there were five and would have been nine by the
+            time the card could also live at the foot and the row could sit
+            under the promos. See LAUNCHPAD_TREATMENTS.
           */}
           <Segmented
-            label="Launchpad sits"
-            options={LAUNCHPAD_SPOTS}
-            value={launchpadSpot}
-            onChange={(v: LaunchpadSpot) => setLaunchpadSpot(v)}
-            format={(v) => LAUNCHPAD_SPOT_LABELS[v]}
-            keywords="launchpad setup guide row l1 top above below settings featured card placement where sits"
+            label="Launchpad is a"
+            options={LAUNCHPAD_TREATMENTS}
+            value={launchpadTreatment}
+            onChange={(v: LaunchpadTreatment) => setLaunchpadTreatment(v)}
+            format={(v) => LAUNCHPAD_TREATMENT_LABELS[v]}
+            keywords="launchpad setup guide treatment card row featured what drawn as"
           />
           <Note>
-            {launchpadSpot === "card"
-              ? "The progress card under search: a title, a meter and a door. The zero state as a guide, and the most expensive thing at the top of the column."
-              : launchpadSpot === "cardFoot"
-                ? "The same card, moved to the nav\u2019s foot: under the Customize button, on top of the featured cards. It keeps the meter and gives up the position \u2014 an offer rather than an instruction."
-              : launchpadSpot === "featured"
-                ? "One of the featured cards at the nav\u2019s foot, drawn as Holiday Promos is \u2014 a still, a name, a line and a door. It leads the deck, in front of the sale."
-                : launchpadSpot === "rowTop"
-                  ? "An ordinary row, first in the L1 list above the categories. A row is what every other destination in this nav costs; what it loses is the meter."
-                  : launchpadSpot === "rowAbove"
-                    ? "A row above Settings, filed with the account\u2019s own business. What setup becomes once an account is running: found when looked for."
-                    : "A row under Settings and the Learn row \u2014 the last thing in the column, and the quietest place the nav has."}
-            {launchpadSpot === "featured" && navFeaturedSlot !== "card"
+            {launchpadTreatment === "card"
+              ? "The progress card: a title, a meter and a door. The only drawing that can carry the tally, and the most expensive thing wherever it goes."
+              : launchpadTreatment === "row"
+                ? "An ordinary nav row \u2014 what every other destination in this nav costs. It gives up the meter and keeps a step count; see the progress control below."
+                : "One of the featured cards at the nav\u2019s foot, drawn as Holiday Promos is: a still, a name, a line and a door. It leads the deck, in front of the sale."}
+            {launchpadTreatment === "featured" && navFeaturedSlot !== "card"
               ? " Needs \u201cFeatured products\u201d set to the card slot \u2014 with the slot elsewhere there is no deck for it to lead."
               : ""}
-            {launchpadIsRow(launchpadSpot)
-              ? " In edit mode the row carries an eye and a kebab: hide it, or move it between the three row spots. It still cannot be renamed, re-iconed or dragged into a category \u2014 Launchpad is filed in no bucket."
-              : ""}
           </Note>
+
+          {launchpadPositionsFor(launchpadTreatment).length > 0 ? (
+            <>
+              <Segmented
+                label="Launchpad sits"
+                options={launchpadPositionsFor(launchpadTreatment)}
+                value={launchpadPosition}
+                onChange={(v: LaunchpadPosition) => setLaunchpadPosition(v)}
+                format={(v) => LAUNCHPAD_POSITION_LABELS[v]}
+                keywords="launchpad position where sits top promos holiday below above settings foot placement"
+              />
+              <Note>
+                {launchpadPosition === "top"
+                  ? launchpadTreatment === "card"
+                    ? "Under search and above the tree: the first thing on the surface, every visit."
+                    : "First in the L1 list, above the categories \u2014 the one position that says setup matters more than the work."
+                  : launchpadPosition === "promos"
+                    ? "In the list, directly under the Holiday Promos row. Filed with the account\u2019s own business rather than announced over it."
+                    : launchpadPosition === "aboveSettings"
+                      ? "Anchored above Settings with the other chrome. What setup becomes once an account is running: found when looked for."
+                      : launchpadPosition === "belowSettings"
+                        ? "Under Settings and the Learn row \u2014 the last thing in the column, and the quietest place the nav has."
+                        : "At the nav\u2019s foot: below the Customize button, on top of the featured cards. It keeps the meter and gives up the position."}
+                {launchpadIsListRow(launchpadTreatment, launchpadPosition)
+                  ? " In the list it is a row among rows: its own eye, its own kebab, and \u2014 with dragging on \u2014 a grip. Edit mode\u2019s Show / hide menu drops it, since the row already carries that switch."
+                  : launchpadTreatment === "row"
+                    ? " Beside Settings it is chrome: the kebab moves it to the other chrome position and hides it, and the Show / hide menu still lists it. No grip \u2014 there is nothing over there to drag past."
+                    : ""}
+              </Note>
+            </>
+          ) : null}
+
+          {/*
+            What edit mode may do to the row. Two switches, because they are
+            two claims: where the row goes is the account's business, what it
+            looks like is the product's. See LAUNCHPAD_ROW_DRAG_DEFAULT.
+          */}
+          {launchpadTreatment === "row" ? (
+            <>
+              <Toggle
+                label="Row can be dragged"
+                checked={launchpadRowDrag}
+                onChange={() => setLaunchpadRowDrag(!launchpadRowDrag)}
+                keywords="launchpad row drag reorder move grip locked position edit mode"
+              />
+              <Note>
+                {!launchpadIsListRow(launchpadTreatment, launchpadPosition)
+                  ? "No effect beside Settings \u2014 a chrome row has nothing to be dragged past. It governs the two in-list positions."
+                  : launchpadRowDrag
+                    ? "A grip, plus Move up and Move down through the real rows. Where an account drops it outlives this panel\u2019s position; re-picking a position above puts it back."
+                    : "Locked where the position above puts it, the way Holiday Promos is under \u201cLocked\u201d. Still hideable, still re-iconable \u2014 it just does not move, so every account\u2019s Launchpad is in the same place and a tour can point at it."}
+              </Note>
+
+              <Toggle
+                label="Row icon can be changed"
+                checked={launchpadRowIcon}
+                onChange={() => setLaunchpadRowIcon(!launchpadRowIcon)}
+                keywords="launchpad row icon glyph change picker rocket edit mode kebab"
+              />
+              <Note>
+                {launchpadRowIcon
+                  ? "Change icon sits in the row\u2019s kebab, writing the same override map every other row\u2019s glyph uses. Reset icon appears once one is set."
+                  : "The kebab does not offer it, and the row keeps the Rocket. The glyph\u2019s COLOUR is a separate axis and stays live either way."}
+              </Note>
+            </>
+          ) : null}
 
           {/*
             How the row says "this one is different", which is the question
@@ -3440,7 +3525,7 @@ function NavStructureSection({
             two answers are independent: a hue on the glyph, and a fact at the
             row's edge. See LAUNCHPAD_ROW_ACCENT_DEFAULT.
           */}
-          {launchpadIsRow(launchpadSpot) ? (
+          {launchpadTreatment === "row" ? (
             <>
               <Segmented
                 label="Launchpad glyph colour"
@@ -3500,7 +3585,7 @@ function NavStructureSection({
             The same question for the featured card, which has a line to spend
             where the row does not. See LAUNCHPAD_CARD_PROGRESS.
           */}
-          {launchpadSpot === "featured" ? (
+          {launchpadTreatment === "featured" ? (
             <>
               <Segmented
                 label="Featured card shows"
@@ -4134,19 +4219,150 @@ function BrandingSection({
       />
       <Segmented
         label="Theme options"
-        options={["minimal", "full", "extended"] as const}
+        options={["minimal", "full", "extended", "advanced"] as const}
         value={proto.themeSet}
         onChange={(v: ThemeSet) => setProto({ themeSet: v })}
         format={(v) => THEME_SET_LABELS[v]}
-        keywords={`theme themes options minimal full extended expanded font size radius corner icon color text color presets more 6 8 light dark system mode font gradient white label customize onboarding ${kw}`}
+        keywords={`theme themes options minimal full extended advanced expanded font size radius corner icon color text color presets more 6 8 light dark system mode font gradient white label customize onboarding ${kw}`}
       />
       <Note>
         {proto.themeSet === "minimal"
           ? "Up to 8 light themes: 2 from the agency\u2019s logo, the rest curated. No light, dark, or system mode, no font, and no window gradient. Custom theme stays. Onboarding lists the logo themes on their own."
           : proto.themeSet === "full"
             ? "All 17 themes, light, dark, and system mode, fonts, and the window gradient."
-            : "Everything in Full, plus sidebar font size, corner radius, text color, and icon color."}
+            : proto.themeSet === "extended"
+              ? "Everything in Full, plus sidebar font size, corner radius, text color, and icon color."
+              : "Minimal, plus an Advanced options button that opens everything in Full and Extended."}
       </Note>
+      {proto.themeSet === "advanced" ? (
+        <Segmented
+          label="Advanced options open"
+          options={["inline", "modal"] as const}
+          value={proto.advancedOpens}
+          onChange={(v: AdvancedOpens) => setProto({ advancedOpens: v })}
+          format={(v) => ADVANCED_OPENS_LABELS[v]}
+          keywords={`advanced options theme expand below modal ${kw}`}
+        />
+      ) : null}
+      <Segmented
+        label="Sub-account logo uploads"
+        options={["update", "keep"] as const}
+        value={proto.subLogoUploads}
+        onChange={(v: SubLogoUploads) => setProto({ subLogoUploads: v })}
+        format={(v) => SUB_LOGO_UPLOADS_LABELS[v]}
+        keywords={`sub-account subaccount logo upload full logo wordmark sidebar icon avatar business profile keep unchanged update sidebar rail header ${kw}`}
+      />
+      <Note>
+        {proto.subLogoUploads === "update"
+          ? "A sub-account\u2019s full logo, sidebar icon, and avatar show in its sidebar, rail, and header once saved."
+          : "Uploads save on Business profile, but the sub-account\u2019s sidebar, rail, and header stay as they are. The agency is unaffected."}
+      </Note>
+      {proto.subLogoUploads === "keep" ? (
+        <>
+          <Toggle
+            label="Still apply avatar initials and color"
+            checked={proto.keepSubAvatar}
+            onChange={(keepSubAvatar) => setProto({ keepSubAvatar })}
+            keywords={`sub-account subaccount avatar initials color background keep sidebar logo uploads business profile ${kw}`}
+          />
+          <Note>
+            {proto.keepSubAvatar
+              ? "Logos stay as they were, but edited avatar initials and color show in the rail and sidebar."
+              : "Nothing changes in the sidebar, and Business profile hides the avatar initials and color editor."}
+          </Note>
+        </>
+      ) : null}
+      <Segmented
+        label="Sub-account header logo"
+        options={["agency", "sub"] as const}
+        value={proto.subHeaderLogo}
+        onChange={(v: SubHeaderLogo) => setProto({ subHeaderLogo: v })}
+        format={(v) => SUB_HEADER_LOGO_LABELS[v]}
+        keywords={`agency logo sub-account subaccount header full logo wordmark name below logo uploads ${kw}`}
+      />
+      <Note>
+        {proto.subHeaderLogo === "agency"
+          ? "Once the agency uploads a full logo, every sub-account header shows it, with the sub-account name under it."
+          : "Sub-account headers show the sub-account\u2019s own full logo when it has one, else its name."}
+      </Note>
+      <Segmented
+        label="Sub-account header shows"
+        options={["logo", "both", "name"] as const}
+        value={proto.subHeaderShows}
+        onChange={(v: SubHeaderShows) => setProto({ subHeaderShows: v })}
+        format={(v) => SUB_HEADER_SHOWS_LABELS[v]}
+        keywords={`sub-account subaccount header shows full logo uploads upload wordmark name below logo search ${kw}`}
+      />
+      <Note>
+        {proto.subHeaderShows === "both"
+          ? "With a full logo uploaded: the logo, with the sub-account name under it, above search."
+          : proto.subHeaderShows === "logo"
+            ? "With a full logo uploaded: the logo replaces the name."
+            : "Always the sub-account name as text, even with a full logo uploaded."}
+      </Note>
+      {proto.subHeaderShows === "both" ? (
+        <Segmented
+          label="Logo and name layout"
+          options={["name-top", "logo-top", "side"] as const}
+          value={proto.subHeaderLayout}
+          onChange={(v: SubHeaderLayout) => setProto({ subHeaderLayout: v })}
+          format={(v) => SUB_HEADER_LAYOUT_LABELS[v]}
+          keywords={`sub-account header logo name layout above below side by side stacked tooltip truncate logo uploads ${kw}`}
+        />
+      ) : null}
+      <Toggle
+        label="Logo guidelines"
+        checked={proto.logoGuides}
+        onChange={(logoGuides) => setProto({ logoGuides })}
+        keywords={`logo guidelines dos donts do don't show hide upload full logo onboarding white label business profile ${kw}`}
+      />
+      <Toggle
+        label="Fix logo edge cases"
+        checked={proto.logoAutoFix}
+        onChange={(logoAutoFix) => setProto({ logoAutoFix })}
+        keywords={`logo edge cases fix auto white light dark logo contrast plate backdrop border background box jpg tall portrait vertical square stacked upload ${kw}`}
+      />
+      <Note>
+        {proto.logoAutoFix
+          ? "On: a logo too light or dark for the sidebar sits on a contrasting plate, a logo with its own background gets rounded corners and a thin border, and a tall or square logo gets a taller row. The upload row says what changed."
+          : "Off: logos show exactly as uploaded. Empty margin is always trimmed."}
+      </Note>
+      {proto.logoAutoFix ? (
+        <>
+          <Segmented
+            label="Adjusted message placement"
+            options={["text", "row", "none"] as const}
+            value={proto.fixNotePlacement}
+            onChange={(v: FixNotePlacement) => setProto({ fixNotePlacement: v })}
+            format={(v) => FIX_NOTE_PLACEMENT_LABELS[v]}
+            keywords={`logo edge cases fix adjusted message note placement below text row hidden ${kw}`}
+          />
+          <Segmented
+            label="Adjusted message style"
+            options={["text", "tag", "callout", "success", "neutral"] as const}
+            value={proto.fixNoteStyle}
+            onChange={(v: FixNoteStyle) => setProto({ fixNoteStyle: v })}
+            format={(v) => FIX_NOTE_STYLE_LABELS[v]}
+            disabled={proto.fixNotePlacement === "none"}
+            keywords={`logo edge cases fix adjusted message style text tag pill callout alert success neutral ${kw}`}
+          />
+          <Toggle
+            label="Adjusted icon on logo"
+            checked={proto.fixBadge}
+            onChange={(fixBadge) => setProto({ fixBadge })}
+            keywords={`logo edge cases fix adjusted icon badge corner wand ${kw}`}
+          />
+          <Toggle
+            label="Adjusted message on hover"
+            checked={proto.fixTooltip}
+            onChange={(fixTooltip) => setProto({ fixTooltip })}
+            keywords={`logo edge cases fix adjusted tooltip hover icon ${kw}`}
+          />
+          <Note>
+            The icon sits on the logo preview&apos;s corner. With the hover message on, hovering it shows what changed (the icon shows even if its own toggle is off). Set placement to Hidden to keep only the icon.
+          </Note>
+        </>
+      ) : null}
       <Segmented
         label="Logo guidelines in settings"
         options={["modal", "accordion"] as const}
@@ -4214,17 +4430,31 @@ function BrandingSection({
         keywords={`avatar initials icon square logo color gradient onboarding ${kw}`}
       />
       <Segmented
-        label="Sidebar icon preview shape"
-        options={["circle", "square"] as const}
-        value={proto.iconShape}
-        onChange={(v: IconShape) => setProto({ iconShape: v })}
+        label="Agency sidebar icon shape"
+        options={["square", "circle"] as const}
+        value={proto.agencyIconShape}
+        onChange={(v: IconShape) => setProto({ agencyIconShape: v })}
         format={(v) => ICON_SHAPE_LABELS[v]}
-        keywords={`sidebar icon avatar shape circle round square rounded preview upload white label business profile onboarding ${kw}`}
+        keywords={`agency sidebar icon avatar shape circle round square preview upload white label onboarding logo uploads ${kw}`}
+      />
+      <Segmented
+        label="Sub-account sidebar icon shape"
+        options={["circle", "square"] as const}
+        value={proto.subIconShape}
+        onChange={(v: IconShape) => setProto({ subIconShape: v })}
+        format={(v) => ICON_SHAPE_LABELS[v]}
+        keywords={`sub-account subaccount sidebar icon avatar shape circle round square preview upload business profile logo uploads ${kw}`}
+      />
+      <Segmented
+        label="Sidebar icon border"
+        options={["none", "gray-50", "gray-100", "gray-200"] as const}
+        value={proto.iconEdge}
+        onChange={(v: IconEdge) => setProto({ iconEdge: v })}
+        format={(v) => ICON_EDGE_LABELS[v]}
+        keywords={`sidebar icon border edge outline ring gray transparent white light background agency sub-account logo uploads ${kw}`}
       />
       <Note>
-        {proto.iconShape === "circle"
-          ? "A circle, so the sidebar icon reads as the account\u2019s avatar. An upload fills it."
-          : "A rounded square, with the upload inset on its plate."}
+        Agency icons are square, like the agency mark in the rail. Sub-account icons are circles, like the rail avatars. Both are dashed drop targets with the upload cropped to fit.
       </Note>
       <ActionRow
         label="Switchyard onboarding"

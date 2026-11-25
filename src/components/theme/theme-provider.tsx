@@ -102,6 +102,8 @@ import {
   type NavDarkTone,
   type ThemeState,
   type Tint,
+  launchpadResolvePosition,
+  launchpadDefaultPosition,
 } from "@/design/theme";
 import { themeForRoute } from "@/design/route-variants";
 import { chromeForVariant } from "@/components/page/header-variants";
@@ -233,7 +235,8 @@ import type {
   AskRadius,
   QuickActionSpot,
   SearchBorder,
-  LaunchpadSpot,
+  LaunchpadTreatment,
+  LaunchpadPosition,
   LaunchpadRowProgress,
   LaunchpadRowTone,
   LaunchpadCardProgress,
@@ -675,7 +678,10 @@ interface ThemeContextValue extends ThemeState {
   setSearchBorder: (v: SearchBorder) => void;
   setLaunchpadOffered: (on: boolean) => void;
   setLaunchpadEditSwitch: (on: boolean) => void;
-  setLaunchpadSpot: (spot: LaunchpadSpot) => void;
+  setLaunchpadTreatment: (treatment: LaunchpadTreatment) => void;
+  setLaunchpadPosition: (position: LaunchpadPosition) => void;
+  setLaunchpadRowDrag: (on: boolean) => void;
+  setLaunchpadRowIcon: (on: boolean) => void;
   setLaunchpadRowProgress: (v: LaunchpadRowProgress) => void;
   setLaunchpadRowTone: (v: LaunchpadRowTone) => void;
   setLaunchpadCardProgress: (v: LaunchpadCardProgress) => void;
@@ -1461,8 +1467,39 @@ export function ThemeProvider({
         setState((s) => ({ ...s, launchpadOffered })),
       setLaunchpadEditSwitch: (launchpadEditSwitch) =>
         setState((s) => ({ ...s, launchpadEditSwitch })),
-      setLaunchpadSpot: (launchpadSpot) =>
-        setState((s) => ({ ...s, launchpadSpot })),
+      /*
+       * Picking a treatment takes that treatment's own default position.
+       *
+       * Not the old position carried across. The two axes are not independent
+       * — a row cannot sit at the foot, a card cannot sit under the promos —
+       * so a change can strand the position on a value that does not exist for
+       * it, and the stored pair has to stay a real one or the panel draws a
+       * selection that is not among its options.
+       *
+       * But carrying it across where it HAPPENS to be legal is worse than not
+       * carrying it at all, because the names coincide and the meanings do
+       * not: `top` for a card is under search and above the whole tree, and
+       * `top` for a row is the first L1 row. Switching card → row and landing
+       * on "top" looked like the position had been preserved when what had
+       * actually happened was that two different places share a label. The
+       * row's default is `promos` (Ashwin, Nov 25) and it should land there.
+       * See launchpadDefaultPosition.
+       */
+      setLaunchpadTreatment: (launchpadTreatment) =>
+        setState((s) => ({
+          ...s,
+          launchpadTreatment,
+          launchpadPosition:
+            launchpadTreatment === s.launchpadTreatment
+              ? launchpadResolvePosition(launchpadTreatment, s.launchpadPosition)
+              : launchpadDefaultPosition(launchpadTreatment),
+        })),
+      setLaunchpadPosition: (launchpadPosition) =>
+        setState((s) => ({ ...s, launchpadPosition })),
+      setLaunchpadRowDrag: (launchpadRowDrag) =>
+        setState((s) => ({ ...s, launchpadRowDrag })),
+      setLaunchpadRowIcon: (launchpadRowIcon) =>
+        setState((s) => ({ ...s, launchpadRowIcon })),
       setLaunchpadRowProgress: (launchpadRowProgress) =>
         setState((s) => ({ ...s, launchpadRowProgress })),
       setLaunchpadRowTone: (launchpadRowTone) =>

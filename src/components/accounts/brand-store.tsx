@@ -62,6 +62,11 @@ export function useBrand(): BrandValue {
   return ctx;
 }
 
+/** The store, or null outside a BrandProvider. */
+export function useBrandOptional(): BrandValue | null {
+  return React.useContext(BrandContext);
+}
+
 export function BrandProvider({ children }: { children: React.ReactNode }) {
   const [uploads, setUploads] = React.useState<Record<string, BrandUpload>>({});
   const [avatars, setAvatars] = React.useState<Record<string, AvatarTile>>({});

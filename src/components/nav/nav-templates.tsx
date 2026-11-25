@@ -60,6 +60,8 @@ export type NavArrangement = Pick<
   | "hiddenRows"
   // Where Holiday Promos sits. See NavLayoutState.promoAfter.
   | "promoAfter"
+  // ...and where the Launchpad row sits. See NavLayoutState.launchpadAfter.
+  | "launchpadAfter"
   | "tailOrder"
   /**
    * Where each L3 lives — its parent, or DETACHED.
@@ -434,6 +436,7 @@ export function captureArrangement(state: NavLayoutState): NavArrangement {
     hiddenBlocks: tree.hiddenBlocks,
     hiddenRows: tree.hiddenRows,
     promoAfter: tree.promoAfter ?? null,
+    launchpadAfter: tree.launchpadAfter,
     tailOrder: tree.tailOrder,
     customLinks: tree.customLinks,
     panelOrder: tree.panelOrder,
@@ -887,6 +890,7 @@ export function patchForArrangement(
         .map((p) => carriedId(p, owns))
         .filter((p): p is string => p !== undefined),
       promoAfter: a.promoAfter ?? null,
+      launchpadAfter: a.launchpadAfter,
       // The tail also holds the account's OWN links, which the template knows
       // nothing about — so template order first, then anything of the
       // account's it did not mention, rather than discarding them.
@@ -1085,6 +1089,7 @@ export function describeChanges(
   if (!sameList(before.pinned, after.pinned)) out.push("Changed the pinned set");
   if (!sameList(before.hiddenRows, after.hiddenRows)) out.push("Changed which rows are hidden");
   if ((before.promoAfter ?? null) !== (after.promoAfter ?? null)) out.push("Moved Holiday Promos");
+  if (before.launchpadAfter !== after.launchpadAfter) out.push("Moved Launchpad");
 
   /*
    * The blocks — Recent, Quick actions, Launchpad, Favourites.
@@ -1154,6 +1159,7 @@ export function hasLocalChanges(
   if (!sameList(base.pinned, current.pinned)) return true;
   if (!sameList(base.hiddenRows, current.hiddenRows)) return true;
   if ((base.promoAfter ?? null) !== (current.promoAfter ?? null)) return true;
+  if (base.launchpadAfter !== current.launchpadAfter) return true;
   if (!sameList(base.hiddenBlocks, current.hiddenBlocks)) return true;
   if (!sameList(base.tailOrder, current.tailOrder)) return true;
   // A link added or removed is a row added or removed. Without this, adding one

@@ -20,7 +20,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Check, CheckCircle2, ChevronDown, Monitor, Moon, Sun, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, Monitor, Moon, SlidersHorizontal, Sun, X } from "lucide-react";
 import { useBranding } from "@/components/branding/branding-provider";
 import { useModeFor } from "@/components/branding/branding-applier";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -60,13 +60,14 @@ import {
 import { cn } from "@/lib/utils";
 import { useBrand } from "@/components/accounts/brand-store";
 import { logoColors } from "@/lib/logo-colors";
+import { cssColorToRgb } from "@/lib/logo-traits";
 import {
   EXTRA_FONT_SIZES,
   EXTRA_RADII,
   logoLightThemes,
-  logoThemes,
   minimalPresets,
   type ThemeExtras,
+  type ThemeSet,
 } from "@/design/branding";
 
 export interface ThemeFieldProps {
@@ -324,13 +325,147 @@ const NO_COLORS: string[] = [];
  */
 export function useLogoThemeSuggestions(): BrandingPreset[] {
   const colors = useAgencyLogoColors();
-  const minimal = useMinimalThemes();
-  return React.useMemo(() => (minimal ? logoLightThemes(colors) : logoThemes(colors)), [colors, minimal]);
+  // Light themes only, in every theme set (Nov 25, 2026).
+  return React.useMemo(() => logoLightThemes(colors), [colors]);
 }
 
-/** True under the Extended theme set (prototype control "Theme options"). */
+/**
+ * Advanced theme set (Nov 25, 2026): whether the advanced options are open
+ * where this renders. Null outside any editor that offers them.
+ */
+const AdvancedOpenContext = React.createContext<boolean | null>(null);
+export const AdvancedOpenProvider = AdvancedOpenContext.Provider;
+
+/** What a theme set shows: Advanced is Minimal until opened, then everything. */
+export function themeTier(set: ThemeSet, advancedOpen: boolean): { minimal: boolean; extended: boolean } {
+  if (set === "advanced") return { minimal: !advancedOpen, extended: advancedOpen };
+  return { minimal: set === "minimal", extended: set === "extended" };
+}
+
+/** True when the Extended fields show (Extended, or Advanced opened). */
 export function useExtendedThemes(): boolean {
-  return useBranding().proto.themeSet === "extended";
+  const set = useBranding().proto.themeSet;
+  return themeTier(set, React.useContext(AdvancedOpenContext) ?? false).extended;
+}
+
+/** "Advanced options" — opens or hides the rest (Nov 25, 2026). */
+export function AdvancedOptionsButton({ open, inline, onClick }: { open: boolean; inline: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={inline ? open : undefined}
+      onClick={onClick}
+      className="motion-tap flex h-[36px] items-center gap-[8px] self-start rounded-[8px] px-[12px] text-[14px] leading-[20px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98]"
+    >
+      <SlidersHorizontal size={16} aria-hidden="true" className="text-pg-muted" />
+      {inline && open ? "Hide advanced options" : "Advanced options"}
+      {inline ? (
+        <ChevronDown size={14} aria-hidden="true" className={cn("text-pg-muted transition-transform", open && "rotate-180")} />
+      ) : null}
+    </button>
+  );
+}
+
+/**
+ * Advanced options as a full accordion (Nov 25, 2026): a bordered row —
+ * icon, title, hint, chevron — whose body holds font and the Extended
+ * fields. Used when "Advanced options open" is "Expand below".
+ */
+export function AdvancedAccordion({
+  open,
+  onToggle,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  const id = React.useId();
+  return (
+    <div className="flex flex-col rounded-[8px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={onToggle}
+        className={cn(
+          "motion-tap flex min-h-[48px] items-center gap-[10px] rounded-[8px] px-[14px] py-[10px] text-left hover:bg-pg",
+          open && "rounded-b-none shadow-[inset_0_-1px_0_0_var(--pg-border)]",
+        )}
+      >
+        <SlidersHorizontal size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[14px] leading-[20px] font-medium text-pg-heading">Advanced options</span>
+          <span className="text-[13px] leading-[18px] text-pg-muted">Font, text size, colors, and corners</span>
+        </span>
+        <ChevronDown
+          size={16}
+          aria-hidden="true"
+          className={cn("shrink-0 text-pg-muted transition-transform", open && "rotate-180")}
+        />
+      </button>
+      {open ? (
+        <div id={id} className="motion-panel-in flex flex-col gap-[20px] p-[14px]">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** The advanced options in a modal: everything, editing the same theme live. */
+export function AdvancedOptionsModal({ value, onChange, disabled, onClose }: ThemeFieldProps & { onClose: () => void }) {
+  const { effective } = useTheme();
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onClose();
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+  return createPortal(
+    <div data-page-theme={effective.appTheme} className="fixed inset-0 z-[125] flex items-center justify-center p-[16px] font-sans">
+      <button type="button" aria-label="Close" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[#10182899]" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Advanced options"
+        style={{ width: 640, maxHeight: "min(760px, calc(100dvh - 32px))" }}
+        className="motion-panel-in relative flex max-w-full flex-col overflow-hidden rounded-[8px] bg-pg-surface shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03)]"
+      >
+        <header className="flex shrink-0 items-start gap-[10px] px-[16px] pt-[12px] pb-[4px]">
+          <div className="flex min-w-0 flex-1 flex-col gap-[2px]">
+            <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">Advanced options</h2>
+            <p className="text-[13px] leading-[18px] text-pg-muted">Changes preview as you make them.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="motion-tap -mt-[2px] flex size-[24px] shrink-0 items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg-row-border hover:text-pg-heading"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto px-[16px] pt-[12px] pb-[16px]">
+          <ThemeEditor value={value} onChange={onChange} disabled={disabled} forceAdvanced />
+        </div>
+        <footer className="flex shrink-0 justify-end px-[16px] py-[12px] shadow-[inset_0_1px_0_0_var(--pg-border)]">
+          <button
+            type="button"
+            autoFocus
+            onClick={onClose}
+            className="motion-tap h-[36px] rounded-[8px] bg-brand px-[14px] text-[14px] font-medium text-white hover:brightness-95 active:scale-[0.98]"
+          >
+            Done
+          </button>
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
 }
 
 /**
@@ -344,65 +479,146 @@ export function ExtendedThemeFields({ value, onChange, disabled }: ThemeFieldPro
     for (const k of Object.keys(next) as (keyof ThemeExtras)[]) if (next[k] === undefined) delete next[k];
     onChange({ ...value, extras: next, presetId: value.presetId });
   };
-  const sizes = ["default", ...EXTRA_FONT_SIZES.map(String)] as string[];
-  const radii = ["default", ...EXTRA_RADII.map(String)] as string[];
+  // One row of four compact fields (Nov 25, 2026). The colour fields show
+  // the sidebar's actual current colours rather than an empty "Default".
+  const defaults = useNavDefaultColors();
   return (
-    <div className="flex flex-col gap-[16px]">
-      <div className="flex flex-col gap-[4px]">
-      <FieldLabel>Font size</FieldLabel>
-      <Segmented
+    <div className="@container">
+    <div className="grid grid-cols-2 gap-x-[12px] gap-y-[16px] @[700px]:grid-cols-4">
+      <ExtraSelect
+        id="extras-font-size"
         label="Font size"
-        options={sizes}
-        value={x.fontSize === undefined ? "default" : String(x.fontSize)}
-        onChange={(v) => set({ fontSize: v === "default" ? undefined : Number(v) })}
-        format={(v) => (v === "default" ? "Default" : `${v} px`)}
+        value={x.fontSize}
+        options={EXTRA_FONT_SIZES}
+        onChange={(fontSize) => set({ fontSize })}
         disabled={disabled}
       />
-      </div>
-      <div className="flex flex-col gap-[4px]">
-      <FieldLabel>Corner radius</FieldLabel>
-      <Segmented
+      <ExtraSelect
+        id="extras-radius"
         label="Corner radius"
-        options={radii}
-        value={x.radius === undefined ? "default" : String(x.radius)}
-        onChange={(v) => set({ radius: v === "default" ? undefined : Number(v) })}
-        format={(v) => (v === "default" ? "Default" : `${v} px`)}
+        value={x.radius}
+        options={EXTRA_RADII}
+        onChange={(radius) => set({ radius })}
         disabled={disabled}
       />
-      </div>
-      <div className="grid grid-cols-2 gap-[12px]">
-        <div className="flex flex-col gap-[4px]">
+      <div className="flex flex-col gap-[4px]">
         <FieldLabel htmlFor="extras-text">Text color</FieldLabel>
         <HexField
           id="extras-text"
           label="Text color"
-          value={x.textColor ?? null}
-          onChange={(hex) => set({ textColor: hex ?? undefined })}
+          value={x.textColor ?? defaults.text}
+          onChange={(hex) => set({ textColor: hex && hex !== defaults.text ? hex : undefined })}
           optional
           placeholder="Default"
           disabled={disabled}
         />
-        </div>
-        <div className="flex flex-col gap-[4px]">
+      </div>
+      <div className="flex flex-col gap-[4px]">
         <FieldLabel htmlFor="extras-icon">Icon color</FieldLabel>
         <HexField
           id="extras-icon"
           label="Icon color"
-          value={x.iconColor ?? null}
-          onChange={(hex) => set({ iconColor: hex ?? undefined })}
+          value={x.iconColor ?? defaults.icon}
+          onChange={(hex) => set({ iconColor: hex && hex !== defaults.icon ? hex : undefined })}
           optional
           placeholder="Default"
           disabled={disabled}
         />
-        </div>
+      </div>
+    </div>
+    </div>
+  );
+}
+
+/**
+ * The sidebar's own text and icon colours right now (its --nav-fg and
+ * --nav-fg-muted), as hex — what "Default" means for the Extended fields.
+ */
+function useNavDefaultColors(): { text: string | null; icon: string | null } {
+  const [c, setC] = React.useState<{ text: string | null; icon: string | null }>({ text: null, icon: null });
+  React.useEffect(() => {
+    const el = document.querySelector("[data-nav-column]") ?? document.documentElement;
+    const cs = getComputedStyle(el);
+    // Read past any Extended override, so the default is the theme's own.
+    const root = document.documentElement;
+    const hadFg = root.dataset.brxFg !== undefined;
+    const hadIcon = root.dataset.brxIcon !== undefined;
+    if (hadFg) delete root.dataset.brxFg;
+    if (hadIcon) delete root.dataset.brxIcon;
+    const hex = (v: string) => {
+      const rgb = cssColorToRgb(v.trim());
+      return rgb ? "#" + rgb.map((n) => n.toString(16).padStart(2, "0")).join("") : null;
+    };
+    // A real row's label and icon, as drawn — the variables alone don't say
+    // which one the rows use.
+    // The first ordinary row (skips a highlighted one like Launchpad).
+    let glyph: Element | null = null;
+    let labelEl: Element | null = null;
+    for (const g of el.querySelectorAll("[data-nav-glyph]")) {
+      const lab = g.closest("a, button, [role='link'], [role='button']")?.querySelector("span.truncate");
+      if (lab) {
+        glyph = g.querySelector("svg");
+        labelEl = lab;
+        break;
+      }
+    }
+    const text = hex(labelEl ? getComputedStyle(labelEl).color : cs.getPropertyValue("--nav-fg"));
+    const icon = hex(glyph ? getComputedStyle(glyph).color : cs.getPropertyValue("--nav-fg-muted"));
+    if (hadFg) root.dataset.brxFg = "";
+    if (hadIcon) root.dataset.brxIcon = "";
+    setC({ text, icon });
+  }, []);
+  return c;
+}
+
+/** A 36px HighRise select: "Default" plus px values. */
+function ExtraSelect({
+  id,
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  value: number | undefined;
+  options: readonly number[];
+  onChange: (v: number | undefined) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-[4px]">
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <div className="relative">
+        <select
+          id={id}
+          value={value === undefined ? "" : String(value)}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+          className="h-[36px] w-full cursor-pointer appearance-none rounded-[8px] bg-pg-surface pr-[32px] pl-[12px] text-[14px] leading-[20px] text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] outline-none focus-visible:shadow-[inset_0_0_0_1.5px_var(--brand)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="">Default</option>
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {o} px
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          size={16}
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-[10px] -translate-y-1/2 text-pg-muted"
+        />
       </div>
     </div>
   );
 }
 
-/** True under the minimal theme set (prototype control "Theme options"). */
+/** True when only the minimal set shows (Minimal, or Advanced not opened). */
 export function useMinimalThemes(): boolean {
-  return useBranding().proto.themeSet === "minimal";
+  const set = useBranding().proto.themeSet;
+  return themeTier(set, React.useContext(AdvancedOpenContext) ?? false).minimal;
 }
 
 /** Preset tiles (BRANDING_PRESETS): dot + name + check. Picking one keeps color mode, gradient, and font. */
@@ -427,7 +643,8 @@ export function PresetGrid({
   suggested?: readonly BrandingPreset[];
 }) {
   const mode = useModeFor(value);
-  const minimal = useMinimalThemes();
+  // 6–8 light themes in every theme set (Nov 25, 2026, Ashwin).
+  const minimal = true;
   const limit = columns * rows;
   const selectedIdx = BRANDING_PRESETS.findIndex((p) => p.id === value.presetId);
   // Open from the start when the theme in force sits below the fold.
@@ -1495,24 +1712,78 @@ export function ThemeEditor({
   compact = false,
   columns,
   segregate = false,
-}: ThemeFieldProps & { compact?: boolean; columns?: number; segregate?: boolean }) {
-  const suggested = useLogoThemeSuggestions();
+  forceAdvanced = false,
+}: ThemeFieldProps & {
+  compact?: boolean;
+  columns?: number;
+  segregate?: boolean;
+  /** Inside the Advanced options modal: everything open, no button. */
+  forceAdvanced?: boolean;
+}) {
   const { proto } = useBranding();
-  // Minimal theme set: no color mode, gradient, or font (Nov 24, 2026).
-  const minimal = proto.themeSet === "minimal";
+  const [advOpen, setAdvOpen] = React.useState(false);
+  const advanced = proto.themeSet === "advanced";
+  const inline = proto.advancedOpens === "inline";
+  // What the tiles and fields below read: open only when expanded in place,
+  // or inside the modal.
+  const shownOpen = forceAdvanced || (inline && advOpen);
+  return (
+    <AdvancedOpenProvider value={shownOpen}>
+      <ThemeEditorBody
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        compact={compact}
+        columns={columns}
+        segregate={segregate}
+        button={
+          advanced && !forceAdvanced && !inline ? (
+            <AdvancedOptionsButton open={advOpen} inline={false} onClick={() => setAdvOpen((o) => !o)} />
+          ) : null
+        }
+        accordion={
+          advanced && !forceAdvanced && inline
+            ? { open: advOpen, toggle: () => setAdvOpen((o) => !o) }
+            : null
+        }
+      />
+      {advanced && !forceAdvanced && !inline && advOpen ? (
+        <AdvancedOptionsModal value={value} onChange={onChange} disabled={disabled} onClose={() => setAdvOpen(false)} />
+      ) : null}
+    </AdvancedOpenProvider>
+  );
+}
+
+/**
+ * Brand & theme, stacked (Nov 19): color mode, Themes / Custom theme,
+ * window gradient, font, contrast notes. Under Advanced the extra sections
+ * sit below the "Advanced options" button instead (Nov 25, 2026).
+ */
+function ThemeEditorBody({
+  value,
+  onChange,
+  disabled,
+  compact = false,
+  columns,
+  segregate = false,
+  button,
+  accordion,
+}: ThemeFieldProps & {
+  compact?: boolean;
+  columns?: number;
+  segregate?: boolean;
+  button: React.ReactNode;
+  /** Advanced, "Expand below": font + Extended inside a full accordion. */
+  accordion: { open: boolean; toggle: () => void } | null;
+}) {
+  const suggested = useLogoThemeSuggestions();
+  const minimal = useMinimalThemes();
+  const extended = useExtendedThemes();
   const field = { value, onChange, disabled };
   const [tab, setTab] = React.useState<ThemeTab>(value.presetId ? "themes" : "custom");
-  const modeHint =
-    proto.modeScope === "app"
-      ? "Light, dark, or match this device's setting."
-      : "Light, dark, or match this device's setting, for the sidebar, rail, and top bar.";
   return (
     <div className={cn("flex flex-col", compact ? "gap-[20px]" : "gap-[24px]")}>
-      {minimal ? null : (
-        <Section compact={compact} title="Color mode" hint={modeHint}>
-          <ColorModeField {...field} />
-        </Section>
-      )}
+      {/* No color mode or window gradient in any theme set (Nov 25, 2026). */}
       <Section compact={compact} title="Theme">
         <div className="flex flex-col gap-[12px]">
           <Tabs label="Theme" tabs={THEME_TABS} value={tab} onChange={setTab} />
@@ -1528,13 +1799,24 @@ export function ThemeEditor({
           )}
         </div>
       </Section>
-      {minimal ? null : <GradientField {...field} />}
-      {minimal ? null : <FontField {...field} />}
-      {proto.themeSet === "extended" ? (
-        <Section compact={compact} title="Extended" hint="Fine-tune the sidebar's text, icons, and corners.">
-          <ExtendedThemeFields {...field} />
-        </Section>
-      ) : null}
+      {button}
+      {accordion ? (
+        <AdvancedAccordion open={accordion.open} onToggle={accordion.toggle}>
+          <FontField {...field} />
+          <Section compact title="Extended" hint="Fine-tune the sidebar's text, icons, and corners.">
+            <ExtendedThemeFields {...field} />
+          </Section>
+        </AdvancedAccordion>
+      ) : (
+        <>
+          {minimal ? null : <FontField {...field} />}
+          {extended ? (
+            <Section compact={compact} title="Extended" hint="Fine-tune the sidebar's text, icons, and corners.">
+              <ExtendedThemeFields {...field} />
+            </Section>
+          ) : null}
+        </>
+      )}
       {/* The untouched platform default paints nothing, so there is nothing to warn about. */}
       {isDefaultTheme(value) ? null : <ContrastWarnings theme={value} showPass={false} />}
     </div>

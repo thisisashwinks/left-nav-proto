@@ -402,7 +402,7 @@ function StepperLook({ flow }: { flow: Flow }) {
               );
             })}
           </ol>
-          <ScopeCallout />
+          {/* Who gets it is said once, in the last screen's message (Nov 25, 2026). */}
         </aside>
 
         {/* The step */}
@@ -548,7 +548,9 @@ function StepBody({ flow, columns, narrow = false }: { flow: Flow; columns: numb
       <Callout icon={<Info size={15} aria-hidden="true" />}>
         Your custom sidebar CSS won&apos;t apply to the new sidebar. Your theme replaces it.
       </Callout>
-      {proto.onboardingThemeStep === "full" ? (
+      {/* Full, Extended, and Advanced bring their font / Extended fields here
+          too (Nov 25, 2026); Minimal keeps the plain picker. */}
+      {proto.onboardingThemeStep === "full" || proto.themeSet !== "minimal" ? (
         // Everything the White label tab has: color mode, themes or a custom
         // theme, window gradient, and font (Nov 24).
         <ThemeEditor value={flow.theme} onChange={flow.setTheme} columns={columns} segregate />
@@ -575,7 +577,7 @@ function WelcomeStep({ narrow }: { narrow: boolean }) {
           </div>
         ))}
         <p className="mt-[6px] text-[13px] leading-[18px] text-pg-muted">
-          Applies to your agency and all {SUBS} sub-accounts under it.
+          Your sub-accounts get the same look.
         </p>
       </div>
     );
@@ -594,7 +596,7 @@ function WelcomeStep({ narrow }: { narrow: boolean }) {
         ))}
       </div>
       <Callout icon={<Building2 size={15} aria-hidden="true" />}>
-        Applies to your agency and all {SUBS} sub-accounts under it.
+        Your sub-accounts get the same look.
       </Callout>
     </div>
   );
@@ -656,9 +658,9 @@ function LogosStep({ narrow }: { narrow: boolean }) {
         </button>
       )}
       {/* What kind of file to upload, before it is picked (Nov 24, 2026). */}
-      {proto.onboardingLogoGuide === "inline" ? <LogoGuidelines compact /> : null}
-      {proto.onboardingLogoGuide === "accordion" ? <LogoGuidelinesAccordion /> : null}
-      {proto.onboardingLogoGuide === "split" ? <LogoDosDontsAccordions /> : null}
+      {proto.logoGuides && proto.onboardingLogoGuide === "inline" ? <LogoGuidelines compact /> : null}
+      {proto.logoGuides && proto.onboardingLogoGuide === "accordion" ? <LogoGuidelinesAccordion /> : null}
+      {proto.logoGuides && proto.onboardingLogoGuide === "split" ? <LogoDosDontsAccordions /> : null}
 
       <div aria-hidden="true" className="h-px w-full bg-pg-border" />
 
@@ -696,7 +698,7 @@ function LogosStep({ narrow }: { narrow: boolean }) {
       )}
     </div>
     {/* Outside the card, after both rows (proto onboardingLogoGuide "below"). */}
-    {proto.onboardingLogoGuide === "below" ? (
+    {proto.logoGuides && proto.onboardingLogoGuide === "below" ? (
       <div className="flex flex-col gap-[4px]">
         <h3 className="text-[14px] leading-[20px] font-semibold text-pg-heading">Full logo guidelines</h3>
         <LogoGuidelines compact />
@@ -708,6 +710,15 @@ function LogosStep({ narrow }: { narrow: boolean }) {
 
 function DoneView({ flow, narrow = false }: { flow: Flow; narrow?: boolean }) {
   const agencyInitials = useAgencyInitials();
+  // Only the sub-accounts that got it, when the scope was asked.
+  const scopeAsk = useThemeScopeAsk();
+  const reached = scopeAsk ? flow.picked.length : ALL_SUB_ACCOUNT_IDS.length;
+  const reachLine =
+    reached === ALL_SUB_ACCOUNT_IDS.length
+      ? `Your logo and theme are live for your agency and all ${SUBS} sub-accounts.`
+      : reached === 0
+        ? "Your logo and theme are live for your agency."
+        : `Your logo and theme are live for your agency and ${reached.toLocaleString("en-US")} sub-account${reached === 1 ? "" : "s"}.`;
   const { uploads, avatars } = useBrand();
   const suggested = useLogoThemeSuggestions();
   const up = uploads[AGENCY_ID] ?? {};
@@ -790,7 +801,7 @@ function DoneView({ flow, narrow = false }: { flow: Flow; narrow?: boolean }) {
       </div>
       <h2 className="relative text-[22px] leading-[30px] font-semibold tracking-[-0.01em] text-pg-heading">You&apos;re all set</h2>
       <p className="relative mt-[6px] max-w-[360px] text-[14px] leading-[20px] text-pg-muted">
-        Your agency and all {SUBS} sub-accounts now use your brand.
+        {reachLine}
       </p>
 
       <ul className="relative mt-[20px] flex w-full max-w-[380px] flex-col overflow-hidden rounded-[10px] text-left shadow-[inset_0_0_0_1px_var(--pg-border)] [&>li+li]:shadow-[inset_0_1px_0_0_var(--pg-border)]">
@@ -826,16 +837,17 @@ function WelcomeHero() {
   const after = suggested.find((p) => p.id === "logo-bold") ?? BRANDING_PRESETS.find((p) => p.id === "plum")!;
   const afterChrome = deriveChrome(themeFromPreset(after), "light");
   const plan = [
-    { Icon: ImagePlus, title: "Add your logos", body: "Full logo up top, icon in the rail", time: "1 min" },
-    { Icon: Palette, title: "Pick a theme", body: "We suggest colors from your logo", time: "1 min" },
-    { Icon: Compass, title: "Take a quick tour", body: "See what's new in the sidebar", time: "After setup" },
+    // No time estimates anywhere (Ashwin, Nov 25, 2026).
+    { Icon: ImagePlus, title: "Add your logos", body: "Your full logo up top, your icon in the rail" },
+    { Icon: Palette, title: "Pick a theme", body: "We suggest colors from your logo" },
+    { Icon: Compass, title: "Take a quick tour", body: "Once you're set up, see what's new in the sidebar" },
   ];
   return (
     <div className="flex flex-col">
       {/* Hero */}
       <div className="relative flex h-[184px] items-center justify-center gap-[20px] overflow-hidden bg-pg shadow-[inset_0_-1px_0_0_var(--pg-border)]">
         <span aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(var(--pg-border)_1px,transparent_1px)] [background-size:14px_14px] opacity-60 [mask-image:radial-gradient(70%_70%_at_50%_40%,#000,transparent)]" />
-        <SidebarSketch bg="#ffffff" fg="#98a2b3" sel="#e8efff" selFg="#155eef" label="HighLevel" muted className="relative -rotate-[4deg] opacity-80" />
+        <SidebarSketch bg="#ffffff" fg="#98a2b3" sel="#e8efff" selFg="#155eef" label="Default" muted className="relative -rotate-[4deg] opacity-80" />
         <span className="relative flex size-[32px] items-center justify-center rounded-full bg-pg-surface text-pg-muted shadow-[0_2px_6px_rgba(16,24,40,0.12)]">
           <ArrowRight size={16} aria-hidden="true" />
         </span>
@@ -852,16 +864,13 @@ function WelcomeHero() {
       {/* Copy + plan */}
       <div className="flex flex-col gap-[16px] p-[16px]">
         <div className="flex flex-col gap-[6px]">
-          <span className="text-[12px] leading-[16px] font-medium tracking-[0.02em] text-pg-faint uppercase">
-            New navigation is on
-          </span>
-          <h3 className="text-[20px] leading-[28px] font-semibold tracking-[-0.01em] text-pg-heading">Make the new navigation yours</h3>
+          <h3 className="text-[20px] leading-[28px] font-semibold tracking-[-0.01em] text-pg-heading">Make the sidebar yours</h3>
           <p className="text-[14px] leading-[20px] text-pg-muted">
-            Two quick steps and your agency and all {SUBS} sub-accounts look like your brand.
+            Add your logo and pick a theme. Your sub-accounts get the same look.
           </p>
         </div>
         <ol className="flex flex-col overflow-hidden rounded-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)] [&>li+li]:shadow-[inset_0_1px_0_0_var(--pg-border)]">
-          {plan.map(({ Icon, title, body, time }, i) => (
+          {plan.map(({ Icon, title, body }, i) => (
             <li key={title} className="ob-in flex items-center gap-[12px] px-[14px] py-[10px]" style={{ animationDelay: `${120 + i * 60}ms` }}>
               <span className="flex size-[30px] shrink-0 items-center justify-center rounded-[8px] bg-pg text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)]">
                 <Icon size={15} aria-hidden="true" />
@@ -870,7 +879,6 @@ function WelcomeHero() {
                 <span className="text-[14px] leading-[20px] font-medium text-pg-heading">{title}</span>
                 <span className="text-[13px] leading-[18px] text-pg-muted">{body}</span>
               </span>
-              <span className="shrink-0 text-[12px] leading-[16px] text-pg-faint">{time}</span>
             </li>
           ))}
         </ol>

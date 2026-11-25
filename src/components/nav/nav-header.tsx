@@ -9,7 +9,7 @@ import { COLLAPSE_LOCKED_HINT } from "./collapse-toggle";
 import { AGENCY_WORDMARK_SRC } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
-import { BrandMark, Wordmark } from "./brand-mark";
+import { BrandMark, Wordmark, WordmarkWithName, useAgencyLogoFallback, useSubHeaderShows } from "./brand-mark";
 import { WorkspaceTrigger } from "./workspace-trigger";
 
 interface NavHeaderProps {
@@ -134,7 +134,12 @@ export function NavHeader({
   const agencyWordmarkSrc = AGENCY_WORDMARK_SRC[agencyWordmark];
   // A config `logoSrc` pins the header to one asset for a demo, so it outranks
   // the account's own pair — the wide logo included.
-  const wordmark = logoSrc ? undefined : account.wordmarkSrc;
+  const subShows = useSubHeaderShows(account);
+  // "Name only" for a sub-account's full logo (proto subHeaderShows).
+  // A sub-account without its own full logo can show the agency's (proto
+  // subAgencyLogo) — always with its own name under it.
+  const agencyFallback = useAgencyLogoFallback(account, logoSrc);
+  const wordmark = agencyFallback ?? (logoSrc || subShows === "name" ? undefined : account.wordmarkSrc);
   /*
    * Whether this row already draws the disc the bar can keep.
    *
@@ -345,6 +350,7 @@ export function NavHeader({
         </div>
       ) : null}
       <div
+        data-nav-header-row=""
         className={cn(
           "relative flex items-center gap-[6px]",
           /*
@@ -424,7 +430,7 @@ export function NavHeader({
               {...(onToggleCollapsed ? { onToggleCollapsed } : {})}
             />
           ) : (
-            <span className="flex h-[30px] min-w-0 items-center gap-[7px]">
+            <span className="flex min-h-[30px] min-w-0 items-center gap-[7px]">
               {onToggleCollapsed && mark ? (
                 wordmark ? (
                   /*
@@ -457,7 +463,11 @@ export function NavHeader({
                       suits a login screen, not a nav row, and an agency that
                       follows it literally will not like the result.
                     */}
-                    <Wordmark src={wordmark} alt={account.name} />
+                    {subShows === "both" || agencyFallback ? (
+                      <WordmarkWithName src={wordmark} name={account.name} />
+                    ) : (
+                      <Wordmark src={wordmark} alt={account.name} />
+                    )}
                   </button>
                 ) : (
                 <>
@@ -514,6 +524,7 @@ export function NavHeader({
 
         {trailing && !inlineSearch ? (
           <div
+            data-hdr-trailing=""
             className={
               navIdentityAlign === "center"
                 ? "absolute top-1/2 right-0 -translate-y-1/2 flex items-center gap-[6px]"

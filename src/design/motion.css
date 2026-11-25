@@ -1736,3 +1736,66 @@
     animation-delay: 0ms;
   }
 }
+
+/**
+ * The featured carousel's step. Ashwin, Nov 25.
+ *
+ * The carousel used to cross-fade: the card's text swapped in place and the
+ * thing never read as a carousel, which is what the dots underneath it were
+ * claiming. These are the four halves of one gesture — the card on screen
+ * leaves, the next one arrives from the opposite edge — and which pair runs is
+ * decided by the DIRECTION of the step, not by comparing indices.
+ *
+ * That is the whole trick behind the loop. Wrapping from the last product to
+ * the first is still a forward step, so it still plays `right` → `left` and
+ * the deck appears to keep travelling one way. Driven off the indices instead,
+ * the wrap would have been a jump from 4 back to 0 and the cards would have
+ * rewound across the whole strip to get there — the thing Ashwin asked not to
+ * happen.
+ *
+ * Both halves fade as well as travel. A card sliding out at full opacity hits
+ * the edge of the 272px nav and reads as clipped rather than as leaving.
+ */
+@keyframes feat-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(32%);
+  }
+}
+
+@keyframes feat-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-32%);
+  }
+}
+
+@keyframes feat-slide-out-left {
+  to {
+    opacity: 0;
+    transform: translateX(-32%);
+  }
+}
+
+@keyframes feat-slide-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(32%);
+  }
+}
+
+.feat-slide-in-right {
+  animation: feat-slide-in-right var(--dur-slow) var(--ease-out) both;
+}
+
+.feat-slide-in-left {
+  animation: feat-slide-in-left var(--dur-slow) var(--ease-out) both;
+}
+
+.feat-slide-out-left {
+  animation: feat-slide-out-left var(--dur-slow) var(--ease-out) both;
+}
+
+.feat-slide-out-right {
+  animation: feat-slide-out-right var(--dur-slow) var(--ease-out) both;
+}
