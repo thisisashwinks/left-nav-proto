@@ -3397,8 +3397,8 @@ function NavStructureSection({
           />
           <Note>
             {launchpadEditSwitch
-              ? "Listed in edit mode\u2019s Show / hide menu, next to the dock. The arrangement that shipped before Nov 24."
-              : "Not listed. The card is a zero state, and the account looking at it is the one that has not finished \u2014 so dismissing it is not theirs to do. It leaves on its own at 7 of 7."}
+              ? "Listed in edit mode\u2019s Show / hide menu. It is the only thing in there now \u2014 Quick actions is out of the build and Recent was never offered \u2014 so switching it off takes the eye away rather than shortening the list."
+              : "Not listed, and with nothing else to list, edit mode draws no Show / hide eye at all. The argument for it: the card is a zero state, and the account looking at it is the one that has not finished."}
           </Note>
 
           {/*
@@ -3416,7 +3416,9 @@ function NavStructureSection({
           />
           <Note>
             {launchpadSpot === "card"
-              ? "The progress card under search: a title, a 3-of-7 meter and a door. The zero state as a guide, and the most expensive thing at the top of the column."
+              ? "The progress card under search: a title, a meter and a door. The zero state as a guide, and the most expensive thing at the top of the column."
+              : launchpadSpot === "cardFoot"
+                ? "The same card, moved to the nav\u2019s foot: under the Customize button, on top of the featured cards. It keeps the meter and gives up the position \u2014 an offer rather than an instruction."
               : launchpadSpot === "featured"
                 ? "One of the featured cards at the nav\u2019s foot, drawn as Holiday Promos is \u2014 a still, a name, a line and a door. It leads the deck, in front of the sale."
                 : launchpadSpot === "rowTop"
@@ -3428,7 +3430,7 @@ function NavStructureSection({
               ? " Needs \u201cFeatured products\u201d set to the card slot \u2014 with the slot elsewhere there is no deck for it to lead."
               : ""}
             {launchpadIsRow(launchpadSpot)
-              ? " The row is chrome, like Settings and the Learn row: edit mode cannot move, rename or re-icon it."
+              ? " In edit mode the row carries an eye and a kebab: hide it, or move it between the three row spots. It still cannot be renamed, re-iconed or dragged into a category \u2014 Launchpad is filed in no bucket."
               : ""}
           </Note>
 

@@ -3365,6 +3365,9 @@ export function AccountRail({
           frame but itself. See NavIntroCard.
         */
         {...(filled ? { "data-nav-overlay": "" } : {})}
+        // Widened and painted: the resting hairline in globals.css stands
+        // down, so the strip's own lift and edge show. Ashwin, Nov 25.
+        {...(painted ? { "data-rail-painted": "" } : {})}
         // The hook the plane's top-alignment rule reaches. This strip is
         // absolutely positioned, so the nav column's own padding does not
         // move it — an abspos child resolves against the padding BOX, whose
@@ -3494,10 +3497,22 @@ export function AccountRail({
             and it does not change because the surface went a shade down.
           */
           painted && RAIL_SHADE_CLASS[railShade],
+          /*
+            Deeper than it was (Nov 25): on a white fill the strip has less
+            contrast with what it covers, so the lift carries the separation.
+
+            The 1px edge is drawn OVER the contents rather than as an inset
+            shadow on the strip itself: the sticky plates inside (the search
+            row, the agency row) paint the rail's fill and covered the inset
+            edge, so the right-hand line broke beside Manage sub-accounts.
+            Ashwin, Nov 25.
+          */
           painted &&
             (navOnPlane
-              ? "shadow-[inset_0_0_0_1px_var(--nav-border),12px_0_28px_-18px_rgba(15,23,42,0.22)]"
-              : "shadow-[inset_0_0_0_1px_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"),
+              ? "shadow-[16px_0_36px_-16px_rgba(15,23,42,0.32)]"
+              : "shadow-[20px_0_48px_-18px_rgba(15,23,42,0.55)]"),
+          painted &&
+            "after:pointer-events-none after:absolute after:inset-0 after:z-[10] after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_var(--nav-border)]",
           !painted && "bg-transparent",
           /*
             The two widened states round differently, and on purpose.

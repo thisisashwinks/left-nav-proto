@@ -86,7 +86,11 @@ export function HolidayPromosRow({ editing, label }: { editing: boolean; label: 
       <div inert className="flex min-w-0 flex-1 opacity-60">
         <PlainRow icon={icon} label={label} onSelect={open} />
       </div>
-      <Lock aria-label="Locked" size={14} className="mr-[var(--t-nav-px,8px)] -ml-[28px] shrink-0 text-nav-fg-subtle" />
+      {/* In the kebab's own 20px box (see MenuAffordance), so the lock is
+          centred in the same column as the ⋮ on every row below. Ashwin, Nov 25. */}
+      <span className="mr-[var(--t-nav-px,8px)] -ml-[34px] grid w-[20px] shrink-0 place-items-center">
+        <Lock aria-label="Locked" size={14} className="text-nav-fg-subtle" />
+      </span>
     </div>
   );
 }

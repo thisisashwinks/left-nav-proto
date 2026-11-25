@@ -814,7 +814,9 @@
 /* The rail's edge (Nov 24): one hairline between the sub-account rail and the
    sidebar, in the nav's own divider colour — gray on the default theme, and
    whatever the agency theme maps --nav-divider to when one is applied. Not on
-   the opened rail, which floats over the sidebar with its own edge. */
-[data-account-rail]:not([data-nav-overlay]) {
+   the opened rail, which floats over the sidebar with its own edge — nor on
+   the widened peek (data-rail-painted), whose shadow this rule was wiping
+   out, being unlayered and so stronger than any utility. Ashwin, Nov 25. */
+[data-account-rail]:not([data-nav-overlay]):not([data-rail-painted]) {
   box-shadow: inset -1px 0 0 0 var(--nav-divider);
 }

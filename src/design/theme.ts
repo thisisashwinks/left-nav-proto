@@ -5310,29 +5310,37 @@ export const SEARCH_BORDER_VARS: Record<SearchBorder, string> = {
 export const LAUNCHPAD_OFFERED_DEFAULT = true;
 
 /**
- * Whether edit mode may hide the Launchpad card. Ashwin, Nov 24 — no.
+ * Whether edit mode may hide the Launchpad card. Ashwin, Nov 25 — yes.
  *
  * Splitting the card's two questions, because they were one control answering
  * both: whether the product HAS the card (above, on) and whether an admin
- * restructuring the nav can take it off their accounts (here, off).
+ * restructuring the nav can take it off their accounts (here, on).
  *
- * Off because the card is a zero state, and the account looking at it is by
- * definition the one that has not finished. Letting that account dismiss the
- * only thing telling it what is left is the same mistake Recent's switch was
- * — see `presentBlocks` — and the card already leaves on its own at 7 of 7.
+ * It shipped off on Nov 24, on the argument that the card is a zero state and
+ * the account looking at it is by definition the one that has not finished —
+ * so letting it dismiss the only thing saying what is left is the mistake
+ * Recent's switch was. Ashwin turned it back on a day later, and the reason
+ * the first argument did not hold is `presentBlocks`: with Quick actions now
+ * absent from the build entirely and Recent never offered, Launchpad was the
+ * LAST block the show/hide menu had to govern. Off, edit mode drew no eye at
+ * all — the affordance disappeared rather than the one option inside it, and
+ * an edit mode with no show/hide is a different proposal from one whose list
+ * happens to be short.
  *
- * With this off, Quick actions gone and Recent never offered, the show/hide
- * menu is left with the favourites dock alone, and nothing at all in the
- * merged arrangement where the dock is off screen too. Then edit mode draws
- * no eye — see the note on `onOpenBlocks`.
+ * So the eye is back and Launchpad is what it holds. Quick actions is the
+ * only block that stays out, and it stays out for a reason that is not about
+ * editing: see QUICK_ACTIONS_OFFERED_DEFAULT — the build does not ship it, so
+ * there is nothing for the menu to restore.
  */
-export const LAUNCHPAD_EDIT_SWITCH_DEFAULT = false;
+export const LAUNCHPAD_EDIT_SWITCH_DEFAULT = true;
 
 /**
  * How the Launchpad presents itself in the nav. Ashwin, Nov 24.
  *
  *  card      Today: the progress card under search, above the tree. The
- *            setup guide as a guide — a title, a 3-of-7 meter and a door.
+ *            setup guide as a guide — a title, a meter and a door.
+ *  cardFoot  The SAME card, moved to the nav's foot: under the Customize
+ *            button, directly above the featured cards. Ashwin, Nov 25.
  *  rowTop    An ordinary L1 row, first in the column, above the categories.
  *  rowAbove  The same row, anchored above Settings with the other chrome.
  *  rowBelow  The same row, under Settings and the Learn row — the last thing
@@ -5348,6 +5356,14 @@ export const LAUNCHPAD_EDIT_SWITCH_DEFAULT = false;
  * not where a zero state's instruction belongs unless it is wearing the
  * featured cards' clothes. So each option names a whole arrangement rather
  * than letting the panel build one that has never been drawn.
+ *
+ * `cardFoot` is the card's own version of that second argument. It keeps the
+ * meter — the thing a row cannot carry — and gives up the position, landing
+ * where the nav already keeps things it is offering you rather than things
+ * you asked for: on top of the featured cards, in their company. The card is
+ * unchanged down there, which is the point of comparing it: the same control
+ * reads as an instruction at the top of the column and as an offer at the
+ * foot of it, and only its neighbours changed.
  *
  * The three row spots say where setup sits relative to the work. At the top
  * it is the first thing and the most expensive — it costs the row the
@@ -5368,6 +5384,7 @@ export const LAUNCHPAD_EDIT_SWITCH_DEFAULT = false;
  */
 export const LAUNCHPAD_SPOTS = [
   "card",
+  "cardFoot",
   "rowTop",
   "rowAbove",
   "rowBelow",
@@ -5377,6 +5394,7 @@ export type LaunchpadSpot = (typeof LAUNCHPAD_SPOTS)[number];
 
 export const LAUNCHPAD_SPOT_LABELS: Record<LaunchpadSpot, string> = {
   card: "Setup card",
+  cardFoot: "Setup card at the foot",
   rowTop: "Row at the top",
   rowAbove: "Row above Settings",
   rowBelow: "Row below Settings",
@@ -5387,6 +5405,15 @@ export const LAUNCHPAD_SPOT_LABELS: Record<LaunchpadSpot, string> = {
 export function launchpadIsRow(spot: LaunchpadSpot): boolean {
   return spot === "rowTop" || spot === "rowAbove" || spot === "rowBelow";
 }
+
+/**
+ * The row spots in column order, for the kebab's Move up and Move down.
+ *
+ * One list rather than three comparisons, so "what is above this" is answered
+ * in the same place the rows are declared and a fourth spot cannot be added
+ * without the menu learning about it.
+ */
+export const LAUNCHPAD_ROW_ORDER = ["rowTop", "rowAbove", "rowBelow"] as const;
 
 /**
  * How the Launchpad ROW carries its progress. Ashwin, Nov 24.
@@ -7529,7 +7556,7 @@ export const BULK_BUTTON_LABEL = "Apply layout";
  * also the way you CREATE an account — "Find or create" is a promise a bare
  * line makes quietly. Four sides is what people have learned to click.
  *
- * Default: `underline` (Ashwin, Nov 24, 2026).
+ * Default: `box` (Ashwin, Nov 25, 2026; `underline` from Nov 24).
  *
  * Geometry is identical either way — same 32px height, same glyph, same
  * clear button — so the two can be swapped without the rows below moving.
@@ -9397,7 +9424,7 @@ export const DEFAULT_THEME: ThemeState = {
   canvasBleed: "corner",
   customCodeMode: "inherit",
   codeScopeView: "header",
-  railShade: "default",
+  railShade: "white",
   agencyPlate: "full",
   /*
     The agency is the first of the pinned run, not furniture above it.
@@ -9535,7 +9562,7 @@ export const DEFAULT_THEME: ThemeState = {
     them if the shut rail ever has to teach its own search.
   */
   railSearchGlyph: "divider",
-  railSearchField: "underline",
+  railSearchField: "box",
   /*
     The arrival, not the slide. See RAIL_PIN_MOTIONS — Ashwin asked for this
     one on Oct 27, on the grounds that pinning is a change of KIND and the

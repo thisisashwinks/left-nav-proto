@@ -43,6 +43,7 @@ import {
   SEARCH_REVEAL_PARTS,
   SEARCH_OUT_MS,
   launchpadIsRow,
+  LAUNCHPAD_ROW_ORDER,
   launchpadRowHasCount,
   launchpadRowHasMeter,
 } from "@/design/theme";
@@ -695,6 +696,14 @@ export function LeftNav({
     navFeaturedPromoBg,
     navPromoPlacement,
   } = useTheme().effective;
+  /*
+   * The one setter this surface holds.
+   *
+   * The Launchpad row's kebab moves it between the row spots, and the spot is
+   * a theme axis rather than anything in the account's layout — so the nav
+   * writes the panel's dial directly. See `launchpadExtras`.
+   */
+  const { setLaunchpadSpot } = useTheme();
   // Holiday Promos' glyph, for its edit-mode row. See NAV_PROMO_ICONS.
   const promoGlyph = usePromoGlyph();
   const featuredCount = useFeatured().list.length;
@@ -1734,6 +1743,21 @@ export function LeftNav({
    * did. See LAUNCHPAD_SPOTS.
    */
   const launchpadInCard = launchpad && launchpadSpot === "card";
+  /**
+   * The same card, at the nav's foot instead of its head. See LAUNCHPAD_SPOTS.
+   *
+   * Separate from `launchpadInCard` rather than folded into it, because the two
+   * are read for different questions. `launchpadInCard` is "does the opening
+   * cluster draw a card", and everything that follows from it — the gap under
+   * it, the top-align nudge, whether Quick actions has a box to fold into —
+   * belongs to the TOP of the column and means nothing down here. The foot card
+   * is just a card in the footer stack; it carries none of that.
+   *
+   * Sub-account only, like the card above it: an agency reading its own nav is
+   * past the zero state, and the foot is not far enough away to change that.
+   */
+  const launchpadAtFoot =
+    launchpad && launchpadSpot === "cardFoot" && !agencyScope;
   /** Launchpad drawn as a plain L1 row, and where. See LAUNCHPAD_ITEM. */
   const launchpadRow = launchpad && launchpadIsRow(launchpadSpot);
   /*
@@ -1797,6 +1821,49 @@ export function LeftNav({
   const cardShowing =
     workspace === null &&
     ((launchpadInCard && !agencyScope) || cardQuickActions);
+
+  /**
+   * The setup card at the foot, and the stack it leads. See LAUNCHPAD_SPOTS.
+   *
+   * It stands ABOVE the featured cards and below the Customize button, which
+   * is the arrangement Ashwin asked for on Nov 25 and also the only one that
+   * reads: the featured cards are the nav's advertising, and a thing this
+   * account actually has to finish should not be filed underneath them.
+   *
+   * Quick actions never folds into THIS copy of the card. Where the card sits
+   * at the head of the column it is the one box up there and the footer row is
+   * a sensible place to put a second job; at the foot it is one card among the
+   * featured ones, and a card in that stack with a ⚡ row hanging off it is a
+   * shape nothing else down there has. If both are ever wanted at once, the
+   * head card still draws — `cardQuickActions` is independent of the spot.
+   *
+   * Unlike the featured cards it survives edit mode: it is a block with a
+   * switch in the show/hide menu now (see LAUNCHPAD_EDIT_SWITCH_DEFAULT), and
+   * a block you can hide has to be on screen to be hidden.
+   */
+  const footLaunchpadCard =
+    launchpadAtFoot && workspace === null ? (
+      <SetupGuideRow
+        atFoot
+        onOpen={() => onSelect?.(PROPOSED_HOME_ID)}
+      />
+    ) : null;
+  /**
+   * Whether the footer's card stack draws at all.
+   *
+   * It used to be `featuredCardShown` alone at all three settings placements.
+   * With the setup card able to live down here, "are there featured cards" and
+   * "is there anything in the stack" became two questions, and the gates below
+   * all want the second one.
+   */
+  const footCardsShown = featuredCardShown || footLaunchpadCard !== null;
+  /** The stack itself: setup first, then the featured cards. */
+  const footCards = footCardsShown ? (
+    <>
+      {footLaunchpadCard}
+      {promoCard}
+    </>
+  ) : null;
 
   /*
    * Whether the card is the last thing before the tree.
@@ -2391,9 +2458,86 @@ export function LeftNav({
     };
   };
 
+  /**
+   * The Launchpad ROW's edit bundle: hide it, and move it. Ashwin, Nov 25.
+   *
+   * The row spots put Launchpad in the column with the categories (`rowTop`)
+   * or with the anchored chrome by Settings. Standing among rows that all
+   * carry a grip and a kebab, a row with neither reads as broken rather than
+   * as special — which is what the Learn row gets away with only because it is
+   * drawn inert and faded, and Launchpad is a destination you can actually be
+   * standing on.
+   *
+   * What it does NOT get is the tree's bundle. Launchpad is filed in no bucket
+   * by design (PROPOSED_UNLISTED_IDS), so there is no node to rename, re-icon
+   * or drop into a category, and no drag: the three spots are not three
+   * positions in one list — two of them are on the far side of the Settings
+   * rule, which nothing is dragged across. Move up and Move down walk
+   * LAUNCHPAD_ROW_ORDER instead, which is the same journey with the ends
+   * stopped.
+   *
+   * Move writes the THEME axis, not the layout store, because the spot is a
+   * prototype dial: the panel and the nav have to agree about where Launchpad
+   * is, and a second copy of that answer in the account's layout would let
+   * them disagree. It is the one row whose kebab changes what the panel says —
+   * worth knowing when reading an undo toast that does not mention it.
+   */
+  const launchpadExtras = (): Partial<NavRowEdit> => {
+    if (!editing || !launchpadRow) return {};
+    const at = (LAUNCHPAD_ROW_ORDER as readonly string[]).indexOf(launchpadSpot);
+    const move = (to: number) => () =>
+      setLaunchpadSpot(LAUNCHPAD_ROW_ORDER[to]);
+    return {
+      /*
+       * Never `true`: hiding the block takes the row off the surface entirely
+       * (see `launchpad`), so there is no dimmed row left for a lit eye to sit
+       * on. It comes back from the show/hide menu in the entry cluster, which
+       * is where every other block's switch lives — see `presentBlocks`.
+       */
+      hidden: false,
+      onToggleHidden: () => layout.toggleBlock("launchpad"),
+      onOpenMenu: (trigger) => {
+        setMenuTrigger(trigger);
+        menu.open(PROPOSED_HOME_ID, trigger);
+      },
+      menuActions: [
+        {
+          id: "up",
+          label: "Move up",
+          icon: MoveUp,
+          ...(at > 0 ? { onSelect: move(at - 1) } : {}),
+        },
+        {
+          id: "down",
+          label: "Move down",
+          icon: MoveDown,
+          ...(at >= 0 && at < LAUNCHPAD_ROW_ORDER.length - 1
+            ? { onSelect: move(at + 1) }
+            : {}),
+        },
+        {
+          id: "hide",
+          label: "Hide",
+          icon: EyeOff,
+          onSelect: () => layout.toggleBlock("launchpad"),
+        },
+      ],
+    };
+  };
+
+  /** The bundle the three row spots hand to NavItemRow. */
+  const launchpadRowEdit = () =>
+    speakingEdit(
+      mergeRowEdit(null, launchpadExtras()),
+      PROPOSED_HOME_ID,
+    );
+
   const editExtras = (itemId: string): Partial<NavRowEdit> => {
     if (!editing) return {};
     if (itemId === PROMO_ID) return navPromoPlacement === "cardRow" ? promoExtras() : {};
+    // The Launchpad row's own kebab, resolved for `menuOpen` the same way the
+    // promo row's is. Returns {} unless Launchpad is actually drawn as a row.
+    if (itemId === PROPOSED_HOME_ID) return launchpadExtras();
 
     /*
      * The agency tree's kebab.
@@ -6348,6 +6492,7 @@ export function LeftNav({
                     />
                   }
               iconInk={LAUNCHPAD_TONE[launchpadRowTone].ink}
+              edit={launchpadRowEdit()}
               onSelect={() => onSelect?.(PROPOSED_HOME_ID)}
             />
           ) : null}
@@ -6516,7 +6661,7 @@ export function LeftNav({
               )}
               <div ref={footStuck ? footRef : undefined} className={footStuck ? STICKY_FOOT : "contents"}>
               {searchOnly || navSettingsSpot !== "footer" || editSpot !== "above" ? null : editLane}
-              {searchOnly || navSettingsSpot !== "footer" ? null : promoCard}
+              {searchOnly || navSettingsSpot !== "footer" ? null : footCards}
               {searchOnly ? null : <NavDivider />}
               {/*
                 A standing door to All products, when the axis offers it.
@@ -6617,6 +6762,7 @@ export function LeftNav({
                     />
                   }
                   iconInk={LAUNCHPAD_TONE[launchpadRowTone].ink}
+                  edit={launchpadRowEdit()}
                   onSelect={() => onSelect?.(PROPOSED_HOME_ID)}
                   // Not in the bar: an extra, faded with the labels.
                   bar="fade"
@@ -6658,6 +6804,7 @@ export function LeftNav({
                     />
                   }
                   iconInk={LAUNCHPAD_TONE[launchpadRowTone].ink}
+                  edit={launchpadRowEdit()}
                   onSelect={() => onSelect?.(PROPOSED_HOME_ID)}
                   bar="fade"
                 />
@@ -6665,8 +6812,8 @@ export function LeftNav({
               </div>
               {/* Settings above the cards: the promo closes the foot. */}
               {searchOnly || navSettingsSpot !== "above" || editSpot !== "above" ? null : editLane}
-              {searchOnly || navSettingsSpot !== "above" || !featuredCardShown ? null : (
-                <div className={cn("w-full", editSpot !== "above" && "mt-[8px]")}>{promoCard}</div>
+              {searchOnly || navSettingsSpot !== "above" || !footCardsShown ? null : (
+                <div className={cn("w-full", editSpot !== "above" && "mt-[8px]")}>{footCards}</div>
               )}
               {/* Edit below everything: a row of its own at the foot's end. */}
               {searchOnly || navSettingsSpot === "list" || editSpot !== "below" ? null : editLane}
@@ -6677,13 +6824,30 @@ export function LeftNav({
                 foot, sticky like the foot above. Either above the Edit row,
                 clear of the button, or in that row with room left for it.
               */}
-              {searchOnly || navSettingsSpot !== "list" || !featuredCardShown ? null : (
+              {searchOnly || navSettingsSpot !== "list" || !footCardsShown ? null : (
                 <div
                   ref={navFootSticky === "sticky" ? footRef : undefined}
                   className={cn(
                     "mt-auto flex w-full flex-col",
                     navFootSticky === "sticky" && STICKY_FOOT,
-                    editSpot === "beside"
+                    /*
+                      Editing, the reservation is a different size and for a
+                      different thing.
+
+                      The numbers below all buy room for the floating Edit
+                      button, and while editing there is no Edit button — it is
+                      replaced by the editing cluster, which is absolutely
+                      positioned over the nav's foot and already cleared by the
+                      scroll region's own `pb-[76px]`. So `below`'s 34px was
+                      being paid twice: once by the region for the cluster, and
+                      again here for a control that is not on screen. With the
+                      setup card down here that showed up as 36px of nothing
+                      between the card and the Editing panel. 12px is the gap
+                      itself, which is all this still owes. Ashwin, Nov 25.
+                    */
+                    editing
+                      ? "pb-[12px]"
+                      : editSpot === "beside"
                       ? "pr-[40px] pb-[2px]"
                       : editSpot === "below"
                         ? "pb-[34px]"
@@ -6692,7 +6856,7 @@ export function LeftNav({
                   )}
                 >
                   {editSpot === "above" ? editLane : null}
-                  {promoCard}
+                  {footCards}
                 </div>
               )}
             </>
@@ -7726,6 +7890,7 @@ function SetupGuideRow({
   onQuickActionsHover,
   quickActionsActive = false,
   gapBelow = false,
+  atFoot = false,
 }: {
   /**
    * False when Launchpad is switched off but Quick Actions is not — the box
@@ -7759,6 +7924,18 @@ function SetupGuideRow({
    * column it sits in.
    */
   gapBelow?: boolean;
+  /**
+   * The card is in the footer stack rather than the opening cluster.
+   * See LAUNCHPAD_SPOTS `cardFoot`.
+   *
+   * It changes only the card's margins, and it has to: the 4px lead and the
+   * canvas nudge are both answers to "how far below the search field does this
+   * sit", and at the foot there is no search field above it — there is a
+   * Customize button, and under it the featured cards, which bring their own
+   * spacing. Reading the top-align dial down here would have the card follow a
+   * number set by looking at the top of the column.
+   */
+  atFoot?: boolean;
 }) {
   const { launchpadCard, topAlignCard, topAlignCardNudge, launchpadCardGap } =
     useTheme().effective;
@@ -7777,7 +7954,7 @@ function SetupGuideRow({
   const qaMark = useHereStyle(collapsed && quickActionsActive ? "here" : null);
   const v = LAUNCHPAD_STYLE[launchpadCard];
   const plain = launchpadCard === "plain";
-  const alignToCanvas = topAlignCard && !plain;
+  const alignToCanvas = topAlignCard && !plain && !atFoot;
   /*
    * The page's own tally, not a pair of literals.
    *
@@ -7806,17 +7983,25 @@ function SetupGuideRow({
     <div
       className={cn(
         "w-full shrink-0",
-        gapBelow ? null : plain ? "pb-[4px]" : "pb-[2px]",
+        /*
+          Nothing at the foot. The card pays for no gap under it at all down
+          here, because it is never the thing that owns one: the featured slot
+          below it already opens with 8px of its own, and in edit mode the
+          cards are gone and the foot's own padding is what holds the card
+          clear of the editing cluster. 4px on top of either was the card
+          buying a gap its neighbour had already bought. Ashwin, Nov 25.
+        */
+        atFoot ? null : gapBelow ? null : plain ? "pb-[4px]" : "pb-[2px]",
       )}
       style={{
-        paddingTop: alignToCanvas ? topAlignCardNudge : 4,
+        paddingTop: alignToCanvas ? topAlignCardNudge : atFoot ? 0 : 4,
         /*
           The heading's lead-in, given to the card, for the arrangement that
           has no heading — see CARD_GAP_MIN. Inline rather than a class
           because it is a panel dial, and it replaces the 2px rather than
           adding to it: the number in the panel is the gap you see.
         */
-        ...(gapBelow ? { paddingBottom: launchpadCardGap } : {}),
+        ...(gapBelow && !atFoot ? { paddingBottom: launchpadCardGap } : {}),
       }}
     >
       {/* A div holding two buttons — the card navigates, the ⚡ opens a panel,
