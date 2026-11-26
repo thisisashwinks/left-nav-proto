@@ -661,13 +661,17 @@ export function PresetGrid({
     if (segregate && fromLogo.length) {
       return (
         <div className="flex flex-col gap-[8px]">
-          <div className="text-[13px] leading-[18px] font-medium text-pg-text">Suggested from your logo</div>
+          {/* Default first, ahead of the logo themes (Nov 26, 2026). */}
+          <div role="radiogroup" aria-label="Default theme" className="grid gap-[8px]" style={grid}>
+            {all.slice(0, 1).map((p) => tile(p))}
+          </div>
+          <div className="mt-[4px] text-[13px] leading-[18px] font-medium text-pg-text">Suggested from your logo</div>
           <div role="radiogroup" aria-label="Suggested from your logo" className="grid gap-[8px]" style={grid}>
             {fromLogo.map((p) => tile(p))}
           </div>
           <div className="mt-[4px] text-[13px] leading-[18px] font-medium text-pg-text">More themes</div>
           <div role="radiogroup" aria-label="Themes" className="grid gap-[8px]" style={grid}>
-            {rest.map((p) => tile(p))}
+            {rest.filter((p) => p !== all[0]).map((p) => tile(p))}
           </div>
         </div>
       );

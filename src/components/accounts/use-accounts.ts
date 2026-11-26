@@ -3,8 +3,8 @@
 import * as React from "react";
 import { hashId } from "@/lib/account-color";
 import { useTheme } from "@/components/theme/theme-provider";
-import { applyBrand, useBrand } from "./brand-store";
-import { useBrandLogo } from "@/components/branding/branding-applier";
+import { applyBrand, modeUploads, useBrand } from "./brand-store";
+import { useBrandLogo, useSurfacesDark } from "@/components/branding/branding-applier";
 import { useBrandingOptional } from "@/components/branding/branding-provider";
 import { guardNavigation } from "@/components/shell/navigation-guard";
 import {
@@ -260,7 +260,7 @@ export function useAccounts({
    * header, the rail, the switcher and the collapsed rail without any of them
    * knowing uploads exist.
    */
-  const { uploads, avatars, names } = useBrand();
+  const { uploads: rawUploads, avatars, names } = useBrand();
   // Agency branding's logo (light/dark by surface) wins; uploads are the fallback.
   const brandLogoRaw = useBrandLogo();
   /*
@@ -279,6 +279,18 @@ export function useAccounts({
   // Keep mode, avatar still applies (proto keepSubAvatar, Nov 25, 2026):
   // initials and colour reach the sidebar even though the logos don't.
   const keepSubAvatar = brandingProto?.keepSubAvatar ?? true;
+  /*
+   * Light and dark logos (Nov 26, 2026): an account with dark versions
+   * turned on (agency and sub-accounts separately) shows them while the
+   * sidebar (full logo) or the rail (icon) is dark.
+   */
+  const surfacesDark = useSurfacesDark();
+  const darkAgency = brandingProto?.darkLogosAgency ?? true;
+  const darkSub = brandingProto?.darkLogosSub ?? false;
+  const uploads = React.useMemo(
+    () => modeUploads(rawUploads, surfacesDark, (id) => (id === agency.id ? darkAgency : darkSub)),
+    [rawUploads, surfacesDark, darkAgency, darkSub],
+  );
   const applySub = React.useCallback(
     (a: Account): Account => {
       if (!keepSubLogos) return applyBrand(a, uploads, avatars, names);

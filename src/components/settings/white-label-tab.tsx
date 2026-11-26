@@ -38,7 +38,14 @@ import { WhiteLabelIdealTab } from "./white-label-ideal-tab";
  * because production has only one navigation.
  */
 
-export function WhiteLabelTab({ agency }: { agency: Account }) {
+export function WhiteLabelTab({
+  agency,
+  themeSlot = null,
+}: {
+  agency: Account;
+  /** Sidebar theme, drawn right under the logo section. */
+  themeSlot?: React.ReactNode;
+}) {
   const { customCodeMode, whiteLabelApproach } = useTheme();
   const labs = useLabs();
   const code = useCustomCode();
@@ -81,7 +88,7 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
    * swaps only the custom-code half, which is what keeps them comparable.
    */
   if (whiteLabelApproach === "idealAll") {
-    return <WhiteLabelIdealTab agency={agency} />;
+    return <WhiteLabelIdealTab agency={agency} themeSlot={themeSlot} />;
   }
 
   return (
@@ -210,8 +217,9 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
             <BrandAssetRow
               label="Full logo"
               hint="Your primary logo, displayed in emails and the classic sidebar."
-              spec="Ideal: 350 × 180 px · Max 2.5 MB"
+              spec="Ideal: 540 × 84 px, 3:1 to 6:1 · Max 2.5 MB"
               aspect="wide"
+            darkFor={{ accountId: agency.id, kind: "wordmark" }}
               guide
               {...(agency.wordmarkSrc ? { src: agency.wordmarkSrc } : {})}
               onPick={(src) => void setAgencyFullLogo(brand, src)}
@@ -223,6 +231,7 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
               hint="A compact version of your logo, shown in the new sidebar and as your browser tab’s favicon."
               spec="Square · Min 128 × 128 px · Max 2.5 MB"
               aspect="square"
+            darkFor={{ accountId: agency.id, kind: "logo" }}
               {...(agency.logoSrc ? { src: agency.logoSrc } : {})}
               fallback={agency.logo}
               onPick={(src) => brand.set(agency.id, "logoSrc", src)}
@@ -246,6 +255,8 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
           </div>
         </div>
       </Section>
+
+      {themeSlot}
 
       <Section title="Domains" sub="Update your domains and URLs">
         <div className="flex flex-col gap-[16px]">

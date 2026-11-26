@@ -20,6 +20,10 @@ export interface LogoTraits {
   bg: [number, number, number] | null;
   /** Relative luminance of each sampled ink pixel, 0–1. */
   ink: number[];
+  /** Natural size in px, and whether it is an SVG (sharp at any size). */
+  width: number;
+  height: number;
+  vector: boolean;
 }
 
 const cache = new Map<string, Promise<LogoTraits | null>>();
@@ -108,9 +112,127 @@ function read(src: string): Promise<LogoTraits | null> {
         if (bg && Math.hypot(r - bg[0], g - bg[1], b - bg[2]) < 40) continue;
         ink.push(luminance(r, g, b));
       }
-      resolve({ aspect: nw / nh, opaqueBg, bg, ink });
+      resolve({
+        aspect: nw / nh,
+        opaqueBg,
+        bg,
+        ink,
+        width: nw,
+        height: nh,
+        vector: /^data:image\/svg|\.svg(\?|#|$)/i.test(src),
+      });
     };
     img.onerror = reject;
     img.src = src;
   });
+}
+
+/* ---------------------------------------------------------------------- */
+/* Upload checks (proto `logoChecks`, Nov 26, 2026)                        */
+/* ---------------------------------------------------------------------- */
+
+/** The sidebar's full-logo box: 180px wide, 28px tall at most. */
+export const HEADER_LOGO_BOX = { width: 180, height: 28 } as const;
+/** The dark sidebar the dark-mode check reads against (gray 900). */
+export const DARK_SIDEBAR = "#101828";
+const DARK_LUM = luminance(16, 24, 40);
+
+export type LogoCheckStatus = "pass" | "warn" | "fail";
+export interface LogoCheck {
+  id: "shape" | "size" | "background" | "light" | "dark";
+  status: LogoCheckStatus;
+  title: string;
+  detail?: string;
+}
+
+/** How big the sidebar draws a logo of this aspect. */
+export function headerLogoSize(aspect: number): { width: number; height: number } {
+  const width = Math.round(Math.min(HEADER_LOGO_BOX.width, HEADER_LOGO_BOX.height * aspect));
+  return { width, height: Math.round(width / aspect) };
+}
+
+/** True when the logo needs a backdrop to read on a dark sidebar. */
+export function failsDarkMode(t: LogoTraits): boolean {
+  if (t.opaqueBg) return t.bg ? luminance(...t.bg) > 0.5 : false;
+  return lowContrast(t, DARK_LUM);
+}
+
+/** The backdrop that fixes it: the logo's own box colour, else white. */
+export function darkModeBackdrop(t: LogoTraits): string {
+  return t.opaqueBg && t.bg ? `rgb(${t.bg.map(Math.round).join(" ")})` : "#ffffff";
+}
+
+export function logoChecks(t: LogoTraits): LogoCheck[] {
+  const drawn = headerLogoSize(t.aspect);
+  const shape: LogoCheck =
+    t.aspect >= 3
+      ? { id: "shape", status: "pass", title: "Horizontal shape", detail: `Shows at ${drawn.width} × ${drawn.height} px in the sidebar.` }
+      : t.aspect >= 2
+        ? { id: "shape", status: "warn", title: "A little square", detail: `Shows at only ${drawn.width} px wide. A 3:1 to 6:1 logo fills the space.` }
+        : { id: "shape", status: "fail", title: "Too square", detail: `Shows at only ${drawn.width} px wide. Use a horizontal logo, 3:1 to 6:1.` };
+  const size: LogoCheck = t.vector
+    ? { id: "size", status: "pass", title: "Sharp at any size", detail: "SVG files scale cleanly." }
+    : t.width >= 360
+      ? { id: "size", status: "pass", title: "Large enough", detail: `${t.width} × ${t.height} px stays sharp.` }
+      : t.width >= 180
+        ? { id: "size", status: "warn", title: "May look blurry", detail: `${t.width} px wide. Use at least 360 px for sharp screens.` }
+        : { id: "size", status: "fail", title: "Too small", detail: `${t.width} px wide. Use at least 360 px.` };
+  const background: LogoCheck = t.opaqueBg
+    ? { id: "background", status: "warn", title: "Solid background", detail: "It shows as a box. A transparent PNG or SVG blends in." }
+    : { id: "background", status: "pass", title: "Transparent background" };
+  const light: LogoCheck = lowContrast(t, 1)
+    ? { id: "light", status: "fail", title: "Hard to read on light sidebars", detail: "The logo is too light." }
+    : { id: "light", status: "pass", title: "Readable on light sidebars" };
+  const dark: LogoCheck = failsDarkMode(t)
+    ? {
+        id: "dark",
+        status: "fail",
+        title: "Hard to read in dark mode",
+        detail: t.opaqueBg ? "Its white background shows as a bright box." : "The logo is too dark.",
+      }
+    : { id: "dark", status: "pass", title: "Readable in dark mode" };
+  return [shape, size, background, light, dark];
+}
+
+/*
+ * Logos the user said NOT to put on a dark-mode background ("Add background
+ * in dark mode" switched off). Keyed by src; prototype memory only.
+ */
+const darkBgOff = new Set<string>();
+const darkBgListeners = new Set<() => void>();
+let darkBgVersion = 0;
+export function darkBgOptedOut(src: string): boolean {
+  return darkBgOff.has(src);
+}
+export function setDarkBgOptOut(src: string, off: boolean) {
+  if (off) darkBgOff.add(src);
+  else darkBgOff.delete(src);
+  darkBgVersion++;
+  darkBgListeners.forEach((l) => l());
+}
+export function subscribeDarkBg(l: () => void) {
+  darkBgListeners.add(l);
+  return () => {
+    darkBgListeners.delete(l);
+  };
+}
+export function darkBgSnapshot() {
+  return darkBgVersion;
+}
+
+/*
+ * A background the user put behind a logo that is too light for light
+ * sidebars (Nov 26, 2026): "Add a background behind the logo", black by
+ * default. Keyed by src; shares the listeners above.
+ */
+export const LIGHT_BG_DEFAULT = "#000000";
+const lightBg = new Map<string, string>();
+export function lightBgFor(src: string): string | null {
+  return lightBg.get(src) ?? null;
+}
+export function setLightBg(src: string, color: string | null) {
+  if (color) lightBg.set(src, color);
+  else lightBg.delete(src);
+  darkBgVersion++;
+  darkBgListeners.forEach((l) => l());
 }

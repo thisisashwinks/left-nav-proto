@@ -23,6 +23,8 @@ export function Section({
   onCancel,
   footerStart,
   saveLabel = "Save changes",
+  bare = false,
+  hideFooter = false,
 }: {
   title: string;
   sub: string;
@@ -44,9 +46,23 @@ export function Section({
   footerStart?: React.ReactNode;
   /** The primary button's label. Default "Save changes". */
   saveLabel?: string;
+  /**
+   * Inside an accordion that already names it (Nov 26, 2026): no title
+   * column and no card of its own, just the fields and the footer.
+   */
+  bare?: boolean;
+  /** Save and Cancel live in the accordion header instead (Nov 26, 2026). */
+  hideFooter?: boolean;
 }) {
   return (
-    <section className="flex flex-col gap-[12px] border-t border-pg-border pt-[20px] md:flex-row md:gap-[24px]">
+    <section
+      className={
+        bare
+          ? "flex flex-col"
+          : "flex flex-col gap-[12px] border-t border-pg-border pt-[20px] md:flex-row md:gap-[24px]"
+      }
+    >
+      {bare ? null : (
       <header className="shrink-0 md:w-[224px] md:pt-[2px]">
         <h3 className="text-[14px] leading-[20px] font-medium text-pg-heading">
           {title}
@@ -60,10 +76,11 @@ export function Section({
           </span>
         ) : null}
       </header>
+      )}
 
-      <div className="min-w-0 flex-1 rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)]">
+      <div className={bare ? "min-w-0 flex-1" : "min-w-0 flex-1 rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)]"}>
         <div className="p-[16px]">{children}</div>
-        {onSave ? (
+        {onSave && !hideFooter ? (
           <footer className="flex justify-end gap-[12px] border-t border-pg-border px-[16px] py-[12px]">
             {footerStart ? <div className="mr-auto flex items-center">{footerStart}</div> : null}
             <button
@@ -119,3 +136,50 @@ export function Field({
   );
 }
 
+
+/**
+ * Save and Cancel for a section header (proto wlSavePlace "top", Nov 26,
+ * 2026), with an "Unsaved" dot while there is something to save.
+ */
+export function HeaderSave({
+  dirty,
+  onCancel,
+  onSave,
+  label = "Save changes",
+  divider = false,
+}: {
+  dirty: boolean;
+  onCancel: () => void;
+  onSave?: (() => void) | undefined;
+  label?: string;
+  /** A rule before the buttons, when another action shares the header. */
+  divider?: boolean;
+}) {
+  return (
+    <span className="flex shrink-0 items-center gap-[8px]">
+      {divider ? <span aria-hidden="true" className="mx-[4px] h-[20px] w-px bg-pg-border" /> : null}
+      {dirty ? (
+        <span className="hidden items-center gap-[6px] text-[12px] leading-[16px] font-medium text-[var(--hr-warning-700,#b54708)] xl:flex">
+          <span aria-hidden="true" className="size-[6px] rounded-full bg-[var(--hr-warning-500,#f79009)]" />
+          Unsaved
+        </span>
+      ) : null}
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={!dirty}
+        className="motion-tap h-[32px] rounded-[8px] px-[12px] text-[13px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onClick={() => onSave?.()}
+        disabled={!dirty || !onSave}
+        className="motion-tap h-[32px] rounded-[8px] bg-brand px-[12px] text-[13px] font-medium text-white hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {label}
+      </button>
+    </span>
+  );
+}

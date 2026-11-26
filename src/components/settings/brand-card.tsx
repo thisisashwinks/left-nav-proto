@@ -83,8 +83,10 @@ export function BrandCard({ account }: { account: Account }) {
           <BrandAssetRow
             label="Full logo"
             hint="Your primary logo, displayed in emails and the classic sidebar."
-            spec="Ideal: 350 × 180 px · Max 2.5 MB"
+            spec="Ideal: 540 × 84 px, 3:1 to 6:1 · Max 2.5 MB"
             aspect="wide"
+            darkFor={{ accountId: account.id, kind: "wordmark" }}
+            owner={account.id === "agency" ? "agency" : "sub"}
               guide
             {...(account.wordmarkSrc ? { src: account.wordmarkSrc } : {})}
             onPick={(src) => set(account.id, "wordmarkSrc", src)}
@@ -96,6 +98,8 @@ export function BrandCard({ account }: { account: Account }) {
             hint="A compact version of your logo, shown in the new sidebar and as your browser tab’s favicon."
             spec="Square · Min 128 × 128 px · Max 2.5 MB"
             aspect="square"
+            darkFor={{ accountId: account.id, kind: "logo" }}
+            owner={account.id === "agency" ? "agency" : "sub"}
             {...(account.logoSrc ? { src: account.logoSrc } : {})}
             fallback={account.logo}
             onPick={(src) => set(account.id, "logoSrc", src)}

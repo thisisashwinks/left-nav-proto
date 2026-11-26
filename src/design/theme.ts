@@ -1255,7 +1255,12 @@ export const GET_APP_PLACEMENT_LABELS: Record<GetAppPlacement, string> = {
  * The sub-account is untouched either way; this axis only ever reads at agency
  * scope.
  */
-export const AGENCY_SEARCH_DEFAULT = false;
+/*
+ * On, at Ashwin's ask (Nov 26, 2026): the agency gets ⌘K search under the
+ * logo too, in the same place as a sub-account, and follows the same
+ * search controls ("Search sits", corners, quick actions beside it).
+ */
+export const AGENCY_SEARCH_DEFAULT = true;
 
 /**
  * Whether the agency nav header draws the agency logo, when the account rail

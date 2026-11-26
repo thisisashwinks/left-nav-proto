@@ -30,17 +30,14 @@ import { useBranding } from "@/components/branding/branding-provider";
 import {
   ContrastWarnings,
   FontField,
-  Switch,
   ThemeEditor,
   ThemePicker,
   ExtendedThemeFields,
   AdvancedOpenProvider,
-  AdvancedOptionsButton,
   AdvancedAccordion,
-  AdvancedOptionsModal,
   themeTier,
 } from "@/components/branding/branding-controls";
-import { Section as PageSection } from "@/components/settings/white-label-parts";
+import { HeaderSave, Section as PageSection } from "@/components/settings/white-label-parts";
 import { Modal } from "@/components/page/modal";
 import { accounts as ALL_ACCOUNTS } from "@/components/accounts/accounts-data";
 import {
@@ -341,12 +338,7 @@ function DoorFooter({
       </div>
     );
   }
-  // Secondary gray, like Cancel (Ashwin, Nov 19).
-  const reset = (
-    <Btn onClick={() => door.write({ ...DEFAULT_THEME })}>
-      Reset to default
-    </Btn>
-  );
+  // No reset (Nov 26, 2026): Default is the first theme in the picker.
   if (door.layout) {
     return (
       <div className="flex flex-col gap-[8px]">
@@ -381,7 +373,6 @@ function DoorFooter({
   }
   return (
     <div className={cn("flex items-center gap-[12px]", stacked && "flex-wrap")}>
-      {reset}
       {extra}
       <span className="flex-1" />
       <Btn onClick={onCancel}>Cancel</Btn>
@@ -603,7 +594,24 @@ export function requestLeave(go: () => void) {
   go();
 }
 
-export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
+export function BrandingThemeSection({
+  asTab = false,
+  embedded = false,
+  frame,
+}: {
+  asTab?: boolean;
+  /** Inside White label, under the logos: no page heading of its own. */
+  embedded?: boolean;
+  /**
+   * White label section menu / accordions (Nov 26, 2026): wraps the Theme
+   * and Advanced sections. `node(true)` draws one without its own title.
+   */
+  frame?: (
+    part: "theme" | "advanced",
+    node: (bare: boolean, hideFooter?: boolean) => React.ReactNode,
+    save?: React.ReactNode,
+  ) => React.ReactNode;
+}) {
   const { canEdit } = useBrandingAccess();
   const { proto } = useBranding();
   const scope = React.useMemo<BrandingScope>(() => ({ accountId: null }), []);
@@ -619,23 +627,11 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
   const [confirming, setConfirming] = React.useState(false);
   const scopeAsk = useThemeScopeAsk() && agencyWide;
   /*
-   * Preview the default theme (proto resetControl "toggle", Nov 24, 2026):
-   * off writes the default theme as a preview, on puts back what was there.
-   * Editing anything while it is off carries on from the default.
+   * The "Customized sidebar" toggle is gone (Nov 26, 2026): Default is the
+   * first theme in the picker. The stash stays for Cancel.
    */
   const [showDefault, setShowDefault] = React.useState(false);
   const stash = React.useRef<BrandingTheme | null>(null);
-  const toggleCustom = (on: boolean) => {
-    if (!on) {
-      stash.current = door.value;
-      door.write({ ...DEFAULT_THEME });
-      setShowDefault(true);
-    } else {
-      if (stash.current) door.write(stash.current);
-      stash.current = null;
-      setShowDefault(false);
-    }
-  };
   const editField = (t: BrandingTheme) => {
     if (showDefault) {
       stash.current = null;
@@ -679,15 +675,31 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
     door.save("Theme applied successfully.");
   };
 
-  return (
-    <div
-      id={BRANDING_SECTION_ID}
-      className={cn("flex scroll-mt-[16px] flex-col gap-[20px]", !asTab && "pt-[8px]")}
-    >
-      <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">Branding and theme</h2>
-      {canEdit ? null : <ViewOnlyNote />}
-
+  const cancelTheme = () => {
+    setShowDefault(false);
+    stash.current = null;
+    door.revert();
+  };
+  const applyTheme = canEdit
+    ? () => {
+        // "All or selected" is itself the confirmation (Nov 24).
+        if (scopeAsk) {
+          void askThemeScope().then((r) => {
+            if (!r) return;
+            setShowDefault(false);
+            stash.current = null;
+            door.saveScoped(r, r === "all" ? "Theme applied successfully." : undefined);
+          });
+        } else if (proto.applyConfirm) setConfirming(true);
+        else apply();
+      }
+    : undefined;
+  // For a section header that carries Save and Cancel (proto wlSavePlace).
+  const themeSave = <HeaderSave dirty={door.changed} onCancel={cancelTheme} onSave={applyTheme} label="Apply" />;
+  const themeNode = (bare: boolean, hideFooter = false) => (
       <PageSection
+        bare={bare}
+        hideFooter={hideFooter}
         title="Theme"
         sub={
           agencyWide
@@ -695,57 +707,9 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
             : "Your agency's default theme. Sub-accounts on a layout with its own theme keep that one."
         }
         dirty={door.changed}
-        onCancel={() => {
-          setShowDefault(false);
-          stash.current = null;
-          door.revert();
-        }}
-        onSave={
-          canEdit
-            ? () => {
-                // "All or selected" is itself the confirmation (Nov 24).
-                if (scopeAsk) {
-                  void askThemeScope().then((r) => {
-                    if (!r) return;
-                    setShowDefault(false);
-                    stash.current = null;
-                    door.saveScoped(r, r === "all" ? "Theme applied successfully." : undefined);
-                  });
-                } else if (proto.applyConfirm) setConfirming(true);
-                else apply();
-              }
-            : undefined
-        }
+        onCancel={cancelTheme}
+        onSave={applyTheme}
         saveLabel="Apply"
-        footerStart={
-          proto.resetControl === "toggle" ? (
-            <label
-              className={cn(
-                "flex items-center gap-[10px] text-[14px] leading-[20px] text-pg-text",
-                !showDefault && isDefaultTheme(door.value) && "opacity-50",
-              )}
-              title={showDefault ? "Off: previewing the original sidebar. Turn on to see yours." : "On: your customized sidebar. Turn off to preview the original."}
-            >
-              <Switch
-                label="Customized sidebar"
-                checked={!showDefault}
-                disabled={disabled || (!showDefault && isDefaultTheme(door.value))}
-                onChange={toggleCustom}
-              />
-              {/* One label either way (Nov 25, 2026): the switch says on or off. */}
-              Customized sidebar
-            </label>
-          ) : (
-            <button
-              type="button"
-              onClick={() => door.write({ ...DEFAULT_THEME })}
-              disabled={isDefaultTheme(door.value)}
-              className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Reset to default
-            </button>
-          )
-        }
       >
         <AdvancedOpenProvider value={shownOpen}>
         <div className="flex flex-col [&>*+*]:mt-[16px] [&>*+*]:border-t [&>*+*]:border-pg-border [&>*+*]:pt-[16px]">
@@ -756,22 +720,7 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
               {isDefaultTheme(door.value) ? null : <ContrastWarnings theme={door.value} showPass={false} />}
             </div>
           </ThemePart>
-          {advanced && advInline ? (
-            // A full accordion holding font and the Extended fields (Nov 25, 2026).
-            <AdvancedAccordion open={advOpen} onToggle={() => setAdvOpen((o) => !o)}>
-              <ThemePart label="Font" hint={reach("font")}>
-                <FontField {...field} bare />
-              </ThemePart>
-              <ThemePart label="Extended" hint="Fine-tune the sidebar's text, icons, and corners.">
-                <ExtendedThemeFields {...field} />
-              </ThemePart>
-            </AdvancedAccordion>
-          ) : null}
-          {advanced && !advInline ? (
-            <div className="flex">
-              <AdvancedOptionsButton open={advOpen} inline={false} onClick={() => setAdvOpen((o) => !o)} />
-            </div>
-          ) : null}
+          {/* Advanced is its own section below Theme now (Nov 26, 2026). */}
           {minimal || (advanced && advInline) ? null : (<>
           <ThemePart label="Font" hint={reach("font")}>
             <FontField {...field} bare />
@@ -785,9 +734,56 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
         </div>
         </AdvancedOpenProvider>
       </PageSection>
-      {advanced && !advInline && advOpen ? (
-        <AdvancedOptionsModal {...field} onClose={() => setAdvOpen(false)} />
-      ) : null}
+  );
+  const advancedNode = (bare: boolean, hideFooter = false) => (
+        <PageSection bare={bare} title="Advanced" sub="Font, text size, colors, and corners for the sidebar.">
+          <AdvancedOpenProvider value={bare || advOpen}>
+            <AdvancedWrap bare={bare} open={advOpen} onToggle={() => setAdvOpen((o) => !o)}>
+              <ThemePart label="Font" hint={reach("font")}>
+                <FontField {...field} bare />
+              </ThemePart>
+              <ThemePart label="Extended" hint="Fine-tune the sidebar's text, icons, and corners.">
+                <ExtendedThemeFields {...field} />
+              </ThemePart>
+              {door.changed && canEdit && !hideFooter ? (
+                <div className="flex justify-end gap-[12px] border-t border-pg-border pt-[12px]">
+                  <button
+                    type="button"
+                    onClick={cancelTheme}
+                    className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyTheme?.()}
+                    className="motion-tap h-[36px] rounded-[8px] bg-brand px-[14px] text-[14px] font-medium text-white hover:brightness-95 active:scale-[0.98]"
+                  >
+                    Apply
+                  </button>
+                </div>
+              ) : null}
+            </AdvancedWrap>
+          </AdvancedOpenProvider>
+        </PageSection>
+  );
+  return (
+    <div
+      id={BRANDING_SECTION_ID}
+      className={cn("flex scroll-mt-[16px] flex-col gap-[20px]", !asTab && !embedded && "pt-[8px]")}
+    >
+      {embedded ? null : (
+        <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">Branding and theme</h2>
+      )}
+      {canEdit ? null : <ViewOnlyNote />}
+
+      {frame ? frame("theme", themeNode, themeSave) : themeNode(false)}
+      {/*
+       * Advanced, as its own section under Theme, folded by default
+       * (Nov 26, 2026): font, text size, corners, and nav text and icon
+       * colors. Same draft as Theme, so either Apply saves both.
+       */}
+      {advanced ? (frame ? frame("advanced", advancedNode, themeSave) : advancedNode(false)) : null}
 
       {confirming ? (
         <Modal
@@ -1066,5 +1062,15 @@ export function CustomizeThemeHost({ accountId, accountName }: BrandingScope) {
         />
       ) : null}
     </>
+  );
+}
+
+/** The Advanced fields behind their own accordion, or bare inside a section accordion. */
+function AdvancedWrap({ bare, open, onToggle, children }: { bare: boolean; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  if (bare) return <div className="flex flex-col gap-[20px]">{children}</div>;
+  return (
+    <AdvancedAccordion open={open} onToggle={onToggle}>
+      {children}
+    </AdvancedAccordion>
   );
 }

@@ -2,12 +2,15 @@
 
 import * as React from "react";
 import { useBranding } from "@/components/branding/branding-provider";
-import { Eye, ImageUp, Trash2, Wand2 } from "lucide-react";
+import { Eye, ImageUp, Trash2, UploadCloud, Wand2 } from "lucide-react";
 import { useLogoFixNote, useLogoFixes, useSurfaceLuminance } from "@/components/nav/brand-mark";
-import type { FixNoteStyle } from "@/design/branding";
+import { LOGO_MAX_HEIGHT, type FixNoteStyle } from "@/design/branding";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { AccountLogoSpec } from "@/components/accounts/account-logo";
 import { cn } from "@/lib/utils";
+import { LogoChecklist } from "@/components/settings/logo-checks";
+import { LogoCropModal } from "@/components/settings/logo-crop-modal";
+import { useBrandOptional } from "@/components/accounts/brand-store";
 import {
   GuideAccordion,
   LogoGuidelines,
@@ -169,7 +172,17 @@ export function BrandAssetRow({
   compact = false,
   guide = false,
   owner = "agency",
+  darkFor,
+  footer,
 }: {
+  /** A strip under the tiles, inside the card (e.g. the sidebar avatar). */
+  footer?: React.ReactNode;
+  /**
+   * Light and dark versions (proto darkLogosAgency / darkLogosSub, Nov 26,
+   * 2026): which account and asset the dark slot writes to. The dark version
+   * goes straight to the brand store.
+   */
+  darkFor?: { accountId: string; kind: "wordmark" | "logo" };
   /** Whose sidebar icon this is — picks the agency or sub-account shape. */
   owner?: "agency" | "sub";
   /**
@@ -197,28 +210,68 @@ export function BrandAssetRow({
   onRemove: () => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const [over, setOver] = React.useState(false);
+  const { proto } = useBranding();
+  const brand = useBrandOptional();
+  // Dark slot: on for this owner and wired to an account.
+  const darkOn = Boolean(darkFor && brand) && (owner === "sub" ? proto.darkLogosSub : proto.darkLogosAgency);
+  const darkKey = darkFor?.kind === "wordmark" ? "wordmarkDarkSrc" : "logoDarkSrc";
+  const darkSrc = darkOn && darkFor ? brand?.uploads[darkFor.accountId]?.[darkKey] : undefined;
+  // Which slot the next file is for, and the crop modal while it is open.
+  const target = React.useRef<"light" | "dark">("light");
+  const [cropFor, setCropFor] = React.useState<{ to: "light" | "dark"; file?: File } | null>(null);
+  const crop = proto.logoCrop;
 
+  const take = (src: string, name: string | undefined, to: "light" | "dark") => {
+    if (to === "dark" && darkFor) brand?.set(darkFor.accountId, darkKey, src);
+    else onPick(src, name);
+  };
   const read = (file: File | undefined) => {
     if (!file || !file.type.startsWith("image/")) return;
+    const to = target.current;
     const reader = new FileReader();
-    reader.onload = () => onPick(String(reader.result), file.name);
+    reader.onload = () => take(String(reader.result), file.name, to);
     reader.readAsDataURL(file);
   };
+  /**
+   * A file dropped on a tile. Crop on (the default, Nov 26, 2026): the crop
+   * modal opens with the dropped file already in it — drag and drop stays,
+   * cropping still happens.
+   */
+  const dropTo = (to: "light" | "dark", f: File | undefined) => {
+    if (crop) {
+      if (f && f.type.startsWith("image/")) setCropFor({ to, file: f });
+      return;
+    }
+    target.current = to;
+    read(f);
+  };
+  /**
+   * Upload: the file picker, always. With crop on, the chosen file then opens
+   * in the crop modal — pick first, crop second, the way GitHub, Square,
+   * Zoho, Uxcel, and Contra do it (Nov 26, 2026 research).
+   */
+  const pick = (to: "light" | "dark") => {
+    target.current = to;
+    inputRef.current?.click();
+  };
 
-  const filled = Boolean(src) || (aspect === "square" && Boolean(fallback));
   // The square asset previews as a circle by default (Nov 24, 2026) — it is
   // the account's avatar. See IconShape.
-  const { proto } = useBranding();
   /*
    * Sidebar icon shape (Nov 25, 2026): agency square (its rail mark is
    * square), sub-account circle (rail avatars are circles). Separate proto
    * controls. Either way a dashed drop target with the icon cropped inside.
    */
   const shape = aspect === "square" ? (owner === "sub" ? proto.subIconShape : proto.agencyIconShape) : null;
-  const icon = shape !== null;
   const round = shape === "circle";
+  /*
+   * Smart upload checks (proto logoChecks, Nov 26, 2026): once a full logo
+   * is uploaded, a checklist drawn with that file replaces the sample
+   * guidelines.
+   */
+  const checks = proto.logoChecks && aspect === "wide" && Boolean(src);
   // Logo guidelines can be switched off (proto logoGuides, Nov 25, 2026).
+  // Guidelines stay after upload, next to the checks (Nov 26, 2026).
   guide = guide && proto.logoGuides;
   const asAccordion = guide && !compact && proto.logoGuide === "accordion";
   // What the header did to an awkward full logo (proto logoAutoFix).
@@ -228,140 +281,91 @@ export function BrandAssetRow({
   const previewPlate = fixes.resolve(useSurfaceLuminance(null, fixes.enabled)).plate;
   const [guideOpen, setGuideOpen] = React.useState(false);
 
+  /*
+   * Upload tiles (Nov 26, 2026, Ashwin): one tile per version, each with its
+   * own upload, replace, and remove — no shared Upload / Remove buttons that
+   * have to guess which version you meant. The shape every common upload
+   * component settles on: click or drop on the tile, then act on the file
+   * from the tile itself.
+   */
+
+  /*
+   * One card per asset (Nov 26, 2026, layout C), with the light and dark
+   * tiles in labelled columns (layout A). Before upload the card's footer
+   * holds the guidelines; after upload, the checks — the guidelines move
+   * behind an info icon on the check's heading.
+   */
+  const showChecks = checks && Boolean(src);
+  const framed = proto.assetFrame === "cards";
+  const showGuide = guide && !showChecks && aspect === "wide";
   return (
-    /*
-      Wraps on the space it HAS, not on the viewport.
-      
-      `sm:flex-nowrap` was a viewport breakpoint, which is the wrong question
-      once the agency draws these two side by side: at 1440px wide the rule
-      says "do not wrap" while the column the row is in is half a tab, so the
-      buttons stayed on the line and squeezed the description to nothing.
-      Plain `flex-wrap` plus a floor on the text column asks the only
-      question that matters — does this line fit here — so the buttons drop
-      under the text in a column and stay on the line at full width.
-    */
-    <div className="flex w-full flex-col gap-[12px]">
-    <div
+    <section
+      aria-label={label}
       className={cn(
-        "flex w-full items-center",
-        compact ? "flex-nowrap gap-[14px]" : "flex-wrap gap-x-[20px] gap-y-[12px]",
+        "@container flex w-full flex-col",
+        // Cards: a bordered card. Dividers (default): open rows; the page
+        // draws a rule between assets (proto assetFrame).
+        framed
+          ? "overflow-hidden rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)]"
+          : "gap-[12px] py-[20px] first:pt-0 last:pb-0",
       )}
     >
-      {/* Relative, so the "adjusted" badge can sit on the preview's corner. */}
-      <div className="relative shrink-0">
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setOver(true);
-        }}
-        onDragLeave={() => setOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setOver(false);
-          read(e.dataTransfer.files[0]);
-        }}
-        className={cn(
-          "flex shrink-0 items-center justify-center overflow-hidden",
-          round ? "rounded-full" : "rounded-[10px]",
-          compact
-            ? aspect === "wide" ? "h-[64px] w-[112px]" : "size-[64px]"
-            : aspect === "wide" ? "h-[100px] w-[156px]" : "size-[100px]",
-          /*
-            Dashed while empty, solid once there is something in it.
-            
-            An empty box with a hairline reads as a disabled control; dashed
-            is the convention for "drop something here", and it stops saying
-            so the moment something is there. The square field is a special
-            case — it always has SOMETHING, because the nav falls back to the
-            generated mark — so it is solid from the start.
-          */
-          /*
-            Round (Nov 24, 2026): the circle stays a dashed drop target even
-            when filled, so it always says "drop an image here"; the avatar
-            or the upload, cropped to a circle, sits inside it.
-          */
-          icon
-            ? "border border-dashed border-pg-border-strong bg-pg-bg"
-            : filled
-              ? "bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]"
-              : "border border-dashed border-pg-border-strong bg-pg-bg",
-          over && "shadow-[inset_0_0_0_2px_var(--brand)]",
-        )}
-        style={previewPlate ? { background: previewPlate } : undefined}
-      >
-        {src ? (
-          <img
-            src={src}
-            alt=""
-            className={
-              icon
-                ? cn(round ? "rounded-full" : compact ? "rounded-[8px]" : "rounded-[12px]", "object-cover", compact ? "size-[48px]" : "size-[76px]")
-                : "max-h-full max-w-full object-contain p-[10px]"
-            }
-            // The same hairline the rail draws round an uploaded icon.
-            style={icon ? { outline: "1px solid var(--icon-edge, transparent)", outlineOffset: -1 } : undefined}
-          />
-        ) : aspect === "square" && fallback ? (
-          <AccountLogo
-            logo={fallback}
-            size={icon ? (compact ? 48 : 76) : compact ? 40 : 60}
-            radius={round ? 999 : compact ? 8 : 12}
-          />
-        ) : (
-          <ImageUp size={24} aria-hidden="true" className="text-pg-faint" />
-        )}
-      </div>
-      {fixNote && (proto.fixBadge || proto.fixTooltip) ? (
-        <FixBadge note={fixNote} tooltip={proto.fixTooltip} round={round} />
-      ) : null}
-      </div>
-
-      {/* A floor, so the line wraps instead of crushing the copy. */}
-      <div className={cn("flex flex-1 flex-col gap-[2px]", compact ? "min-w-0" : "min-w-[180px]")}>
-        <span className="text-[14px] leading-[20px] font-semibold text-pg-heading">
-          {label}
-        </span>
-        <p className="text-[13px] leading-[18px] text-pg-muted">{hint}</p>
-        <p className="text-[13px] leading-[18px] text-pg-faint">{spec}</p>
-        {fixNote && proto.fixNotePlacement === "text" ? (
-          <FixNote note={fixNote} style={proto.fixNoteStyle} className="mt-[4px]" />
-        ) : null}
-        {guide && !asAccordion ? <LogoGuidelinesButton onClick={() => setGuideOpen((o) => !o)} /> : null}
-        {error ? (
-          <p role="alert" className="text-[13px] leading-[18px] text-[var(--hr-error-600,#d92d20)]">
-            {error}
-          </p>
-        ) : null}
-      </div>
-
       {/*
-        Both buttons always present, Remove disabled with nothing to remove.
-        A button that appears on upload moves the row the moment you use it,
-        which is the one frame you are looking straight at it.
+        One row, layout A (Nov 26, 2026): what the asset is on the left, then
+        a column per sidebar — header over tile. Stacks when the card is too
+        narrow for the row (container query, so the onboarding modal stacks
+        while the settings page does not).
       */}
-      <div className="flex shrink-0 items-center gap-[10px]">
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className={cn(
-            "motion-tap flex items-center rounded-[8px] text-[14px] leading-none font-semibold text-brand shadow-[inset_0_0_0_1px_var(--brand)] hover:bg-brand-soft",
-            compact ? "h-[36px] px-[14px]" : "h-[40px] px-[18px]",
-          )}
-        >
-          {src ? "Replace" : "Upload"}
-        </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          disabled={!src}
-          aria-label={`Remove ${label}`}
-          className={cn(
-            "motion-tap flex items-center rounded-[8px] text-[14px] leading-none font-semibold text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg disabled:cursor-not-allowed disabled:opacity-45",
-            compact ? "h-[36px] px-[14px]" : "h-[40px] px-[18px]",
-          )}
-        >
-          Remove
-        </button>
+      <div
+        className={cn(
+          // Copy up to 400px, tiles right after it — not pushed to the edge.
+          // The copy gives way first; the tiles keep their slot size.
+          "flex flex-col gap-y-[12px] @[620px]:flex-row @[620px]:items-start @[620px]:gap-x-[32px]",
+          !framed ? "" : compact ? "px-[12px] py-[12px]" : "px-[16px] py-[14px]",
+        )}
+      >
+        <div className="flex min-w-0 flex-col gap-[2px] @[620px]:max-w-[400px] @[620px]:flex-1">
+          <span className="text-[14px] leading-[20px] font-semibold text-pg-heading">{label}</span>
+          <p className="text-[13px] leading-[18px] text-pg-muted">{hint}</p>
+          <p className="text-[12px] leading-[16px] text-pg-faint">{spec}</p>
+          {fixNote && proto.fixNotePlacement === "text" ? (
+            <FixNote note={fixNote} style={proto.fixNoteStyle} className="mt-[4px]" />
+          ) : null}
+          {error ? (
+            <p role="alert" className="text-[13px] leading-[18px] text-[var(--hr-error-600,#d92d20)]">
+              {error}
+            </p>
+          ) : null}
+        </div>
+        {/* The tiles sit together, 16px apart (Nov 26, 2026). */}
+        <div className="flex flex-wrap items-start gap-[16px] @[620px]:shrink-0 @[620px]:flex-nowrap">
+        {(darkOn ? (["light", "dark"] as const) : (["light"] as const)).map((slot) => {
+          const light = slot === "light";
+          return (
+            <div key={slot} className="flex min-w-0 flex-col gap-[6px]">
+              {/* Same style as a form field's label (Nov 26, 2026). */}
+              <span className="text-[13px] leading-[18px] text-pg-text">
+                {aspect === "wide" ? (light ? "Light logo" : "Dark logo") : light ? "Light icon" : "Dark icon"}
+              </span>
+              <UploadTile
+                slot={slot}
+                showSlot={darkOn}
+                assetLabel={label}
+                src={light ? src : darkSrc}
+                wide={aspect === "wide"}
+                round={round}
+                compact={compact}
+                {...(light && fallback && aspect === "square" ? { fallback } : {})}
+                {...(light && previewPlate ? { plate: previewPlate } : {})}
+                badge={light && fixNote && (proto.fixBadge || proto.fixTooltip) ? <FixBadge note={fixNote} tooltip={proto.fixTooltip} round={false} /> : null}
+                onPick={() => pick(slot)}
+                onDrop={(f) => dropTo(slot, f)}
+                onRemove={() => (light ? onRemove() : darkFor && brand?.clear(darkFor.accountId, darkKey))}
+              />
+            </div>
+          );
+        })}
+        </div>
       </div>
 
       <input
@@ -369,25 +373,220 @@ export function BrandAssetRow({
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => read(e.target.files?.[0])}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (crop && f && f.type.startsWith("image/")) setCropFor({ to: target.current, file: f });
+          else read(f);
+          e.target.value = "";
+        }}
       />
 
       {guide && !asAccordion && guideOpen ? <LogoGuidelinesModal onClose={() => setGuideOpen(false)} /> : null}
-    </div>
+      {cropFor ? (
+        <LogoCropModal
+          kind={aspect}
+          round={round}
+          surface={cropFor.to === "dark" ? DARK_TILE : navSurface()}
+          title={`${cropFor.to === "dark" ? "Dark sidebar version · " : ""}${label}`}
+          {...(cropFor.file ? { initialFile: cropFor.file } : {})}
+          onClose={() => setCropFor(null)}
+          onDone={(src, name) => {
+            take(src, name, cropFor.to);
+            setCropFor(null);
+          }}
+        />
+      ) : null}
 
-    {/* "We adjusted your logo", under the whole row (proto fixNotePlacement). */}
-    {fixNote && proto.fixNotePlacement === "row" ? <FixNote note={fixNote} style={proto.fixNoteStyle} /> : null}
+      {footer ? (
+        <div className={cn(framed && "border-t border-pg-border", !framed ? "pt-[4px]" : compact ? "px-[12px] py-[12px]" : "px-[16px] py-[14px]")}>{footer}</div>
+      ) : null}
 
-    {/* Accordion mode: a full-width "Show / Hide logo guidelines" row. */}
-    {asAccordion ? (
-      <GuideAccordion
-        title="Show logo guidelines"
-        openTitle="Hide logo guidelines"
-        icon={<Eye size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />}
-      >
-        <LogoGuidelines />
-      </GuideAccordion>
-    ) : null}
+      {(fixNote && proto.fixNotePlacement === "row") || showChecks || showGuide ? (
+        <div
+          className={cn(
+            "flex flex-col gap-[12px]",
+            framed && "border-t border-pg-border bg-[color-mix(in_oklab,var(--pg-bg)_60%,transparent)]",
+            !framed ? "" : compact ? "px-[12px] py-[12px]" : "px-[16px] py-[14px]",
+          )}
+        >
+          {/* "We adjusted your logo" (proto fixNotePlacement). */}
+          {fixNote && proto.fixNotePlacement === "row" ? <FixNote note={fixNote} style={proto.fixNoteStyle} /> : null}
+
+          {showChecks && src ? (
+            <LogoChecklist
+              src={src}
+              compact={compact}
+              bare={framed}
+              {...(darkSrc ? { darkSrc } : {})}
+              {...(darkOn && darkFor && !darkSrc
+                ? {
+                    onUseAsDark: () => {
+                      brand?.set(darkFor.accountId, darkKey, src);
+                      onRemove();
+                    },
+                  }
+                : {})}
+            />
+          ) : null}
+
+          {showGuide ? (
+            asAccordion || compact ? (
+              <GuideAccordion
+                bare={framed}
+                title="Show logo guidelines"
+                openTitle="Hide logo guidelines"
+                icon={<Eye size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />}
+              >
+                <LogoGuidelines compact={compact} />
+              </GuideAccordion>
+            ) : (
+              <LogoGuidelinesButton onClick={() => setGuideOpen((o) => !o)} />
+            )
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+const DARK_TILE = "#1d2939";
+
+/** The live sidebar colour, for the crop preview. */
+function navSurface(): string {
+  const el = document.querySelector("[data-nav-column]");
+  const bg = el ? getComputedStyle(el).getPropertyValue("--nav-bg").trim() : "";
+  return bg || "#ffffff";
+}
+
+/**
+ * One version of an asset as an upload tile (Nov 26, 2026): the preview on
+ * the surface it is for (white for light sidebars, gray 800 for dark), a
+ * dashed drop zone while empty, and the file's own actions in the footer.
+ * Crop on: no drag and drop; the tile opens the crop modal.
+ */
+function UploadTile({
+  slot,
+  showSlot,
+  assetLabel,
+  src,
+  wide,
+  round,
+  fallback,
+  plate,
+  badge,
+  onPick,
+  onDrop,
+  onRemove,
+}: {
+  slot: "light" | "dark";
+  /** Name the slot (Light / Dark) — only when there are two. */
+  showSlot: boolean;
+  assetLabel: string;
+  src?: string;
+  wide: boolean;
+  round: boolean;
+  compact: boolean;
+  fallback?: AccountLogoSpec;
+  plate?: string;
+  badge?: React.ReactNode;
+  onPick: () => void;
+  onDrop: (f: File | undefined) => void;
+  onRemove: () => void;
+}) {
+  const [over, setOver] = React.useState(false);
+  const dark = slot === "dark";
+  const what = `${showSlot ? (dark ? "dark " : "light ") : ""}${assetLabel.toLowerCase()}`;
+  const surface = dark ? DARK_TILE : "#ffffff";
+  /*
+   * Sized to what the sidebar draws (Nov 26, 2026): the full logo's box
+   * (Logo width × 28) or the 32px icon, plus 16px padding all round — so
+   * the tile is the slot, not a full-width banner.
+   */
+  const logoWidth = useBranding().proto.logoWidth;
+  const boxW = wide ? (logoWidth === "auto" ? 168 : Number(logoWidth)) : 32;
+  const boxH = wide ? LOGO_MAX_HEIGHT : 32;
+  return (
+    /*
+     * No footer: an empty tile says "Click to upload", a filled one shows
+     * Replace on hover, and Remove is a small secondary icon button on the
+     * preview's top-right corner.
+     */
+    <div className="relative flex max-w-full flex-col items-start gap-[6px]">
+      <div className="relative">
+        <button
+          type="button"
+          onClick={onPick}
+          aria-label={src ? `Replace ${what}` : `Upload ${what}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setOver(true);
+          }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setOver(false);
+            onDrop(e.dataTransfer.files[0]);
+          }}
+          className={cn(
+            "group/tile motion-tap relative box-content flex items-center justify-center gap-[6px] overflow-hidden rounded-[8px] p-[16px] text-center",
+            !src
+              ? dark
+                ? "border border-dashed border-white/25"
+                : "border border-dashed border-pg-border-strong"
+              : "shadow-[inset_0_0_0_1px_rgba(16,24,40,0.08)]",
+            over && "outline-2 outline-offset-0 outline-[var(--hr-primary-600)]",
+          )}
+          style={{ width: boxW, height: boxH, background: over ? (dark ? "#26324a" : "var(--hr-primary-25,#f5f8ff)") : surface }}
+        >
+          {src ? (
+            wide ? (
+              <span
+                className={cn("inline-flex max-w-full items-center", plate && "rounded-[6px] px-[8px] py-[4px]")}
+                style={plate ? { background: plate } : undefined}
+              >
+                <img src={src} alt="" style={{ maxHeight: boxH, maxWidth: boxW }} className="object-contain" />
+              </span>
+            ) : (
+              <img
+                src={src}
+                alt=""
+                className={cn("size-[32px] object-cover", round ? "rounded-full" : "rounded-[8px]")}
+                style={{ outline: "1px solid var(--icon-edge, transparent)", outlineOffset: -1 }}
+              />
+            )
+          ) : (
+            <>
+              <UploadCloud size={16} aria-hidden="true" className={cn("shrink-0", dark ? "text-white/80" : "text-[var(--hr-primary-600)]")} />
+              {wide ? (
+                <span className={cn("text-[13px] leading-[18px] font-semibold whitespace-nowrap", dark ? "text-white" : "text-[var(--hr-primary-600)]")}>
+                  Click to upload
+                </span>
+              ) : null}
+            </>
+          )}
+          {/* Hover hint on a filled tile: the whole tile replaces. */}
+          {src ? (
+            <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#101828]/55 text-[12px] font-semibold text-white opacity-0 transition-opacity group-hover/tile:opacity-100 group-focus-visible/tile:opacity-100">
+              {src ? "Replace" : "Upload"}
+            </span>
+          ) : null}
+        </button>
+        {src ? (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Remove ${what}`}
+            title="Remove"
+            className="motion-tap absolute -top-[8px] -right-[8px] flex size-[24px] items-center justify-center rounded-[6px] bg-pg-surface text-pg-muted shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_0_0_1px_var(--pg-border)] hover:bg-pg hover:text-[var(--hr-error-600)]"
+          >
+            <Trash2 size={12} aria-hidden="true" />
+          </button>
+        ) : null}
+        {badge}
+      </div>
+      <span className="text-[12px] leading-[16px] text-pg-faint">
+        {src ? `Shows at ${boxW} × ${boxH} px` : fallback ? "Showing your initials" : `Drop a file or click · ${boxW} × ${boxH} px`}
+      </span>
     </div>
   );
 }
@@ -468,7 +667,7 @@ function FixBadge({ note, tooltip, round }: { note: string; tooltip: boolean; ro
       aria-label={note}
       className={cn(
         "group/fix absolute flex size-[22px] items-center justify-center rounded-full bg-[var(--hr-primary-600)] text-white shadow-[0_0_0_2px_var(--pg-surface),0_2px_4px_rgba(16,24,40,0.16)] outline-none",
-        round ? "top-[0px] right-[0px]" : "-top-[8px] -right-[8px]",
+        round ? "top-[0px] left-[0px]" : "-top-[8px] -left-[8px]",
         tooltip && "cursor-help",
       )}
     >

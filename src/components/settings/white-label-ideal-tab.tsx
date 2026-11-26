@@ -1,7 +1,10 @@
 "use client";
 
 import { brandInitials, logoName, trimLogo } from "@/lib/logo-trim";
-import { InitialsInput } from "@/components/branding/switchyard-onboarding";
+import { AvatarEditor } from "@/components/branding/switchyard-onboarding";
+import { useAgencyLogoColors } from "@/components/branding/branding-controls";
+import { avatarTile } from "@/design/branding";
+import { AccountLogo } from "@/components/accounts/account-logo";
 
 /** The seeded rule (two words → both first letters), for names not read off a logo. */
 function initialsOf(name: string): string {
@@ -10,7 +13,7 @@ function initialsOf(name: string): string {
   return brandInitials(words[0] ?? "?");
 }
 import * as React from "react";
-import { Info, Mail, Plus, Pencil, Trash2, X } from "lucide-react";
+import { ChevronDown, Code, Info, Mail, Plus, Pencil, Trash2, TriangleAlert, X } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { accounts as ALL_ACCOUNTS, agency as SEED_AGENCY } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -18,9 +21,10 @@ import { useBrand } from "@/components/accounts/brand-store";
 import { useLabs } from "./labs-state";
 import { useCustomCode } from "./custom-code-store";
 import { BrandAssetRow } from "./logo-upload-field";
-import { Field } from "./white-label-parts";
+import { Field, HeaderSave } from "./white-label-parts";
 import { CodeBlock, ThemeChoice } from "./white-label-ideal";
 import { cn } from "@/lib/utils";
+import { useBrandingOptional } from "@/components/branding/branding-provider";
 
 /**
  * White label, redesigned whole.
@@ -65,7 +69,34 @@ import { cn } from "@/lib/utils";
  * served two navigations, and that is the thing this undoes.
  */
 
-export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
+export function WhiteLabelIdealTab({
+  agency,
+  themeSlot = null,
+}: {
+  agency: Account;
+  /** Sidebar theme, drawn right under Brand (Nov 26, 2026). */
+  themeSlot?: React.ReactNode;
+}) {
+  // Custom code stays folded until asked for (Nov 26, 2026).
+  const [codeOpen, setCodeOpen] = React.useState(false);
+  /*
+   * Sections (Nov 26, 2026): all open, everything but Brand and Theme
+   * folded, or every section a full accordion — with or without a side
+   * menu that scrolls to each one (proto wlSections, wlNav).
+   */
+  const wlProto = useBrandingOptional()?.proto;
+  const sectionsMode = wlProto?.wlSections ?? "open";
+  const collapse = sectionsMode === "fold";
+  const acc = sectionsMode === "accordion";
+  const navMode = wlProto?.wlNav ?? "side";
+  const navOn = navMode !== "none";
+  // Tabs (Nov 26, 2026): the menu shows one section at a time.
+  const tabs = navMode === "tabs";
+  const [activeSec, setActiveSec] = React.useState("wl-brand");
+  const off = (id: string) => tabs && activeSec !== id;
+  // Save and Cancel in each accordion's header instead of its foot.
+  const saveTop = acc && wlProto?.wlSavePlace === "top";
+  const advancedOn = wlProto?.themeSet === "advanced";
   const labs = useLabs();
   const code = useCustomCode();
   const brand = useBrand();
@@ -75,7 +106,8 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
    * Same fields and copy either way; only the frame changes. Ashwin, Nov 9.
    */
   const cards = useTheme().effective.whiteLabelLayout === "cards";
-  const [noticeOn, setNoticeOn] = React.useState(true);
+  // Hidden by default (Nov 26, 2026): the multiple-brands notice is noise here.
+  const [noticeOn, setNoticeOn] = React.useState(false);
 
   const onOldNav = ALL_ACCOUNTS.filter((a) => !labs.accountOn(a.id));
   const oldCount = onOldNav.length;
@@ -127,6 +159,15 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
     (form.brandName !== saved.brandName ? brandInitials(form.brandName.trim().split(/\s+/)[0] || "?") : savedInitials);
   const shownWordmark = logoDraft.wordmark === undefined ? agency.wordmarkSrc : logoDraft.wordmark ?? undefined;
   const shownIcon = logoDraft.icon === undefined ? agency.logoSrc : logoDraft.icon ?? undefined;
+  // Sidebar avatar colour (Nov 26, 2026): the brand store's tile, as onboarding sets it.
+  const logoColors = useAgencyLogoColors();
+  const avatarStyle = useBrandingOptional()?.proto.avatarStyle ?? "solid";
+  const avatarTileNow = brand.avatars[agency.id];
+  const avatarLogo = {
+    ...agency.logo,
+    initials: shownInitials,
+    ...(avatarTileNow ? { from: avatarTileNow.from, to: avatarTileNow.to, brandTile: true } : {}),
+  };
   const logosDirty =
     logoDraft.wordmark !== undefined || logoDraft.icon !== undefined || (initialsDraft !== null && initialsDraft !== savedInitials);
 
@@ -241,6 +282,48 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
   };
   const policySave = sectionSave(["privacy", "terms"]);
 
+  // Theme and Advanced come from the branding section; frame them to match.
+  const themedSlot = React.isValidElement(themeSlot)
+    ? React.cloneElement(themeSlot as React.ReactElement<{ frame?: ThemeFrame }>, {
+        frame: (part, node, save) =>
+          off(`wl-${part}`) ? null : acc ? (
+            <AccordionSection
+              key={`${part}-acc`}
+              id={`wl-${part}`}
+              title={part === "theme" ? "Theme" : "Advanced"}
+              sub={part === "theme" ? "Sidebar colors for every sub-account." : "Font, text size, colors, and corners."}
+              defaultOpen={part === "theme" || tabs}
+              {...(saveTop && save ? { save } : {})}
+            >
+              {node(true, saveTop)}
+            </AccordionSection>
+          ) : (
+            <div key={part} id={`wl-${part}`} className="scroll-mt-[16px]">
+              {node(false)}
+            </div>
+          ),
+      })
+    : themeSlot;
+  // Static: the second brand is a whole flow (Ashwin scoped this to one).
+  const addBrand = (
+    <button
+      type="button"
+      disabled
+      className="motion-tap flex h-[36px] shrink-0 items-center gap-[6px] rounded-[8px] px-[12px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] opacity-60"
+    >
+      <Plus size={16} aria-hidden="true" />
+      Add brand
+    </button>
+  );
+  const navItems = [
+    { id: "wl-brand", label: "Brand" },
+    ...(themeSlot ? [{ id: "wl-theme", label: "Theme" }] : []),
+    ...(themeSlot && advancedOn ? [{ id: "wl-advanced", label: "Advanced" }] : []),
+    { id: "wl-domains", label: "Domains" },
+    { id: "wl-policies", label: "Policies" },
+    { id: "wl-code", label: "Custom code" },
+  ];
+
   return (
     <div
       className={cn(
@@ -289,28 +372,31 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
         </div>
       ) : null}
 
+      {/* Accordions: "Add brand" sits in the Brand header instead (Nov 26, 2026). */}
+      {acc ? null : (
       <header
         className={cn(
           "flex items-center justify-between gap-[16px]",
           cards ? "-mb-[8px] pt-[4px]" : "pt-[8px] pb-[20px]",
         )}
       >
-        <div className="min-w-0">
-          <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
-            White label
-          </h2>
-        </div>
-        <button
-          type="button"
-          disabled
-          className="motion-tap flex h-[36px] shrink-0 items-center gap-[6px] rounded-[8px] px-[12px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] opacity-60"
-        >
-          <Plus size={16} aria-hidden="true" />
-          Add brand
-        </button>
+        {/* No "White label" title: the tab above already says it (Nov 26, 2026). */}
+        <span aria-hidden="true" />
+        {addBrand}
       </header>
+      )}
 
+      <div className={cn(navOn && "flex items-start gap-[24px]")}>
+      {navOn ? <SectionNav items={navItems} tabs={tabs} active={activeSec} onSelect={setActiveSec} /> : null}
+      <div className={cn("flex min-w-0 flex-1 flex-col", (cards || acc) && (acc ? "gap-[12px]" : "gap-[20px]"))}>
       <Group
+        id="wl-brand"
+        key={`brand-${sectionsMode}`}
+        off={off("wl-brand")}
+        saveTop={saveTop}
+        accordion={acc}
+        defaultOpen
+        action={addBrand}
         title="Brand"
         sub="What your clients think they are using."
         cards={cards}
@@ -344,38 +430,19 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
         */}
         <div
           className={cn(
-            "grid grid-cols-1 gap-y-[20px]",
-            /*
-              In a card the pair stacks: the card is the page minus the title
-              column, too narrow for two rows side by side without wrapping.
-            */
-            cards && "[&>*+*]:border-t [&>*+*]:border-pg-border [&>*+*]:pt-[20px]",
-            /* And one under the square mark, before the brand fields. Ashwin, Nov 9. */
-            cards && "border-b border-pg-border pb-[20px]",
-            !cards && "lg:grid-cols-2",
-            /*
-              A rule between the columns, drawn by the SECOND one.
-        
-              The gap goes to zero and each column pads itself instead, so the
-              line lands exactly halfway between them. Left as a 24px gap with a
-              border laid on top of it, the rule would sit hard against the right
-              column and read as that column's edge rather than as the seam
-              between two.
-        
-              Only at `lg`, where the two columns exist. Stacked below that, a
-              vertical rule would be a line down the side of a single column.
-            */
-            !cards && "lg:gap-x-0 lg:[&>*:first-child]:pr-[28px]",
-            !cards && "lg:[&>*+*]:border-l lg:[&>*+*]:border-pg-border lg:[&>*+*]:pl-[28px]",
-            /* And a little air before whatever follows the pair. */
-            cards ? "mb-[4px]" : "mb-[12px]",
+            // Each asset is its own card now (Nov 26, 2026): stacked, no rules.
+            wlProto?.assetFrame === "cards"
+              ? "flex flex-col gap-[16px]"
+              : // Dividers: between the assets, and one under them before the brand fields.
+                "flex flex-col divide-y divide-pg-border border-b border-pg-border pb-[20px]",
           )}
         >
           <BrandAssetRow
             label="Full logo"
             hint="Your primary logo, displayed in emails and the classic sidebar."
-            spec="Ideal: 350 × 180 px · Max 2.5 MB"
+            spec="Ideal: 540 × 84 px, 3:1 to 6:1 · Max 2.5 MB"
             aspect="wide"
+            darkFor={{ accountId: agency.id, kind: "wordmark" }}
               guide
             {...(shownWordmark ? { src: shownWordmark } : {})}
             onPick={(src, fileName) => void pickWordmark(src, fileName)}
@@ -387,6 +454,7 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
             hint="A compact version of your logo, shown in the new sidebar and as your browser tab’s favicon."
             spec="Square · Min 128 × 128 px · Max 2.5 MB"
             aspect="square"
+            darkFor={{ accountId: agency.id, kind: "logo" }}
             {...(shownIcon ? { src: shownIcon } : {})}
             fallback={{ ...agency.logo, initials: shownInitials }}
             {...(iconError ? { error: iconError } : {})}
@@ -395,22 +463,44 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
               setIconError(null);
               setLogoDraft((d) => ({ ...d, icon: null }));
             }}
+            footer={
+              /*
+                Sidebar avatar, inside the icon's card (Nov 26, 2026): title,
+                then the avatar, then initials and colour. Stays visible once
+                an icon is uploaded, dimmed and inert, so it is clear what
+                comes back if the icon is removed.
+              */
+              <div
+                aria-disabled={shownIcon ? true : undefined}
+                className={cn(
+                  "flex flex-col gap-y-[12px] @[620px]:flex-row @[620px]:items-center @[620px]:gap-x-[32px]",
+                  shownIcon && "pointer-events-none opacity-50 select-none",
+                )}
+              >
+                <div className="flex min-w-0 flex-col gap-[2px] @[620px]:max-w-[400px] @[620px]:flex-1">
+                  <span className="text-[14px] leading-[20px] font-semibold text-pg-heading">Sidebar avatar</span>
+                  <p className="text-[13px] leading-[18px] text-pg-muted">
+                    {shownIcon ? "Not shown while you have an icon uploaded." : "Shown as your sidebar icon until you upload one."}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-[16px] @[620px]:shrink-0">
+                  <AccountLogo logo={avatarLogo} size={40} radius={10} />
+                  <AvatarEditor
+                    initials={shownInitials}
+                    onInitials={setInitialsDraft}
+                    onResetInitials={() => setInitialsDraft(null)}
+                    color={avatarTileNow?.color ?? "#475467"}
+                    logoColors={logoColors}
+                    style={avatarStyle}
+                    onColor={(c) =>
+                      brand.setAvatar(agency.id, { ...avatarTile(c, avatarStyle), color: c, custom: true })
+                    }
+                  />
+                </div>
+              </div>
+            }
           />
         </div>
-
-        {shownIcon ? null : (
-          <div className="flex items-center gap-[12px]">
-            <InitialsInput
-              label="Avatar initials"
-              value={shownInitials}
-              onChange={setInitialsDraft}
-              onReset={() => setInitialsDraft(null)}
-            />
-            <span className="text-[13px] leading-[18px] text-pg-muted">
-              Shown on your sidebar icon until you upload one.
-            </span>
-          </div>
-        )}
 
         <div className="flex flex-wrap gap-[16px]">
           <Field
@@ -432,7 +522,13 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
         </div>
       </Group>
 
-      <Group title="Domains" sub="Where your platform lives." cards={cards}>
+      {themeSlot ? (
+        <div className={cn(!cards && !acc && "border-t border-pg-border py-[24px]", acc && "contents")}>
+          {themedSlot}
+        </div>
+      ) : null}
+
+      <Group title="Domains" sub="Where your platform lives." cards={cards} key={`domains-${sectionsMode}-${tabs}`} id="wl-domains" off={off("wl-domains")} saveTop={saveTop} defaultOpen={tabs} accordion={acc} collapsed={collapse}>
         <div className="flex flex-col gap-[4px]">
           <span className="text-[13px] leading-[18px] text-pg-text">
             White label domain
@@ -483,6 +579,7 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
         title="Policies"
         sub="Linked from your sign-up and footer."
         cards={cards}
+        key={`policies-${sectionsMode}-${tabs}`} id="wl-policies" off={off("wl-policies")} saveTop={saveTop} defaultOpen={tabs} accordion={acc} collapsed={collapse}
         save={policySave}
       >
         {/* Stacked in a card, as production has them; paired in the flat form. */}
@@ -510,10 +607,32 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
         editor they are typing into.
       */}
       <Group
-        title="Appearance"
+        title="Custom code"
         sub="Your code runs on the navigation it was written for, and only that one."
         cards={cards}
+        key={`code-${sectionsMode}-${tabs}`} id="wl-code" off={off("wl-code")} saveTop={saveTop} defaultOpen={tabs} accordion={acc} collapsed={collapse}
       >
+        <div className="flex gap-[8px] rounded-[8px] bg-[var(--hr-warning-50)] px-[12px] py-[10px] shadow-[inset_0_0_0_1px_var(--hr-warning-200)]">
+          <TriangleAlert size={16} aria-hidden="true" className="mt-[1px] shrink-0 text-[var(--hr-warning-600)]" />
+          <p className="text-[13px] leading-[18px] text-pg-text">
+            Custom CSS and JS can break or conflict with new features as we release them. Use them only when you need to, and check your pages after each update.
+          </p>
+        </div>
+        {/* Accordions: the section itself folds, so no second toggle (Nov 26, 2026). */}
+        {acc ? null : (
+        <button
+          type="button"
+          aria-expanded={codeOpen}
+          onClick={() => setCodeOpen((o) => !o)}
+          className="motion-tap flex h-[36px] items-center gap-[6px] self-start rounded-[8px] px-[12px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg"
+        >
+          <Code size={16} aria-hidden="true" className="text-pg-muted" />
+          {codeOpen ? "Hide custom code" : "Show custom code"}
+          <ChevronDown size={16} aria-hidden="true" className={cn("text-pg-muted transition-transform", codeOpen && "rotate-180")} />
+        </button>
+        )}
+        {codeOpen || acc ? (
+        <div className="motion-panel-in flex flex-col gap-[16px]">
         {/*
           The NEW navigation leads. Ashwin, Oct 28.
           
@@ -611,8 +730,11 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
             </div>
           </NavBlock>
         ) : null}
-
+        </div>
+        ) : null}
       </Group>
+      </div>
+      </div>
 
       {cards ? null : <SaveBar pending={pending} onCancel={revert} onSave={commit} />}
     </div>
@@ -633,10 +755,30 @@ function Group({
   children,
   cards = false,
   save,
+  collapsed = false,
+  id,
+  accordion = false,
+  defaultOpen = false,
+  action,
+  off = false,
+  saveTop = false,
 }: {
+  /** Tabs mode: another section is showing. */
+  off?: boolean;
+  /** Save and Cancel go in the accordion header. */
+  saveTop?: boolean;
+  /** In an accordion's header, beside the chevron. */
+  action?: React.ReactNode;
+  /** Anchor for the side menu. */
+  id?: string;
+  /** A full accordion section (proto wlSections "accordion"). */
+  accordion?: boolean;
+  defaultOpen?: boolean;
   title: string;
   sub: string;
   children: React.ReactNode;
+  /** Starts folded; the heading opens it (prototype control, Nov 26, 2026). */
+  collapsed?: boolean;
   /**
    * Production's frame: title on the left, fields in a card on the right,
    * and — when `save` is given — that card's own Cancel and Save.
@@ -644,9 +786,47 @@ function Group({
   cards?: boolean;
   save?: { dirty: boolean; onCancel: () => void; onSave: () => void };
 }) {
+  const [open, setOpen] = React.useState(!collapsed);
+  if (off) return null;
+  if (accordion) {
+    return (
+      <AccordionSection
+        id={id}
+        title={title}
+        sub={sub}
+        defaultOpen={defaultOpen}
+        action={action}
+        {...(saveTop && save
+          ? { save: <HeaderSave dirty={save.dirty} onCancel={save.onCancel} onSave={save.onSave} divider={Boolean(action)} /> }
+          : {})}
+      >
+        <div className="flex flex-col gap-[16px] p-[16px]">{children}</div>
+        {save && !saveTop ? <SaveFooter save={save} /> : null}
+      </AccordionSection>
+    );
+  }
+  if (collapsed) {
+    return (
+      <section id={id} className="flex scroll-mt-[16px] flex-col border-t border-pg-border first-of-type:border-t-0">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+          className="motion-tap -mx-[8px] flex items-center gap-[12px] rounded-[8px] px-[8px] py-[16px] text-left hover:bg-pg"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] leading-[21px] font-semibold text-pg-heading">{title}</span>
+            <span className="mt-[2px] block text-[13px] leading-[18px] text-pg-muted">{sub}</span>
+          </span>
+          <ChevronDown size={16} aria-hidden="true" className={cn("shrink-0 text-pg-muted transition-transform", open && "rotate-180")} />
+        </button>
+        {open ? <div className="motion-panel-in flex flex-col gap-[16px] pb-[24px]">{children}</div> : null}
+      </section>
+    );
+  }
   if (cards) {
     return (
-      <section className="flex flex-col gap-[12px] border-t border-pg-border pt-[20px] first-of-type:border-t-0 first-of-type:pt-0 md:flex-row md:gap-[24px]">
+      <section id={id} className="flex scroll-mt-[16px] flex-col gap-[12px] border-t border-pg-border pt-[20px] first-of-type:border-t-0 first-of-type:pt-0 md:flex-row md:gap-[24px]">
         <header className="shrink-0 md:w-[224px] md:pt-[2px]">
           <h3 className="text-[14px] leading-[20px] font-medium text-pg-heading">
             {title}
@@ -686,7 +866,7 @@ function Group({
     );
   }
   return (
-    <section className="flex flex-col gap-[16px] border-t border-pg-border py-[24px] first-of-type:border-t-0 first-of-type:pt-[4px]">
+    <section id={id} className="flex scroll-mt-[16px] flex-col gap-[16px] border-t border-pg-border py-[24px] first-of-type:border-t-0 first-of-type:pt-[4px]">
       <header>
         <h3 className="text-[15px] leading-[21px] font-semibold text-pg-heading">
           {title}
@@ -858,5 +1038,181 @@ function SaveBar({
         </button>
       </span>
     </div>
+  );
+}
+
+type ThemeFrame = (
+  part: "theme" | "advanced",
+  node: (bare: boolean, hideFooter?: boolean) => React.ReactNode,
+  save?: React.ReactNode,
+) => React.ReactNode;
+
+const OPEN_EVENT = "wl-open-section";
+
+/**
+ * A whole section as an accordion (Nov 26, 2026): the card is the section,
+ * its header row the toggle. The side menu opens one before scrolling to it.
+ */
+function AccordionSection({
+  id,
+  title,
+  sub,
+  defaultOpen = false,
+  action,
+  save,
+  children,
+}: {
+  /** Save and Cancel in the header (proto wlSavePlace "top"): a HeaderSave. */
+  save?: React.ReactNode;
+  action?: React.ReactNode;
+  id?: string;
+  title: string;
+  sub: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  const bodyId = React.useId();
+  React.useEffect(() => {
+    if (!id) return;
+    const on = (e: Event) => {
+      if ((e as CustomEvent<string>).detail === id) setOpen(true);
+    };
+    window.addEventListener(OPEN_EVENT, on);
+    return () => window.removeEventListener(OPEN_EVENT, on);
+  }, [id]);
+  return (
+    <section
+      id={id}
+      className="scroll-mt-[16px] rounded-[12px] bg-pg-surface shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_0_0_1px_var(--pg-border)]"
+    >
+      <div
+        className={cn(
+          "flex items-center gap-[12px] rounded-[12px] pr-[16px] hover:bg-pg",
+          open && "rounded-b-none shadow-[inset_0_-1px_0_0_var(--pg-border)]",
+        )}
+      >
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => setOpen((o) => !o)}
+          className="motion-tap flex min-w-0 flex-1 items-center gap-[12px] py-[14px] pl-[16px] text-left"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-[16px] leading-[24px] font-semibold text-pg-heading">{title}</span>
+            <span className="block text-[13px] leading-[18px] text-pg-muted">{sub}</span>
+          </span>
+        </button>
+        {action}
+        {save}
+        <button
+          type="button"
+          aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+          className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[6px] text-pg-muted"
+        >
+          <ChevronDown size={18} aria-hidden="true" className={cn("transition-transform", open && "rotate-180")} />
+        </button>
+      </div>
+      {open ? (
+        <div id={bodyId} className="motion-panel-in">
+          {children}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function SaveFooter({ save }: { save: { dirty: boolean; onCancel: () => void; onSave: () => void } }) {
+  return (
+    <footer className="flex justify-end gap-[12px] border-t border-pg-border px-[16px] py-[12px]">
+      <button
+        type="button"
+        onClick={save.onCancel}
+        className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98]"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onClick={save.onSave}
+        disabled={!save.dirty}
+        className={cn(
+          "motion-tap h-[36px] rounded-[8px] bg-brand px-[14px] text-[14px] font-medium text-white",
+          save.dirty ? "hover:brightness-95 active:scale-[0.98]" : "cursor-not-allowed opacity-50",
+        )}
+      >
+        Save changes
+      </button>
+    </footer>
+  );
+}
+
+/**
+ * The side menu (proto wlNav "side", Nov 26, 2026): one item per section,
+ * click to scroll there (and open it, when sections are accordions). The
+ * item for the section in view is highlighted.
+ */
+function SectionNav({
+  items,
+  tabs = false,
+  active: tabActive,
+  onSelect,
+}: {
+  items: { id: string; label: string }[];
+  /** Tabs: the item picks the one section shown; no scrolling. */
+  tabs?: boolean;
+  active?: string;
+  onSelect?: (id: string) => void;
+}) {
+  const [scrollActive, setActive] = React.useState(items[0]?.id ?? "");
+  const active = tabs ? (tabActive ?? "") : scrollActive;
+  const ids = items.map((i) => i.id).join(",");
+  React.useEffect(() => {
+    if (tabs) return;
+    // The last section whose top has passed a line near the top of the view.
+    const update = () => {
+      const all = ids.split(",");
+      let hit = all[0] ?? "";
+      for (const id of all) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= 140) hit = id;
+      }
+      setActive(hit);
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    return () => window.removeEventListener("scroll", update, true);
+  }, [ids, tabs]);
+  const go = (id: string) => {
+    if (tabs) {
+      onSelect?.(id);
+      return;
+    }
+    setActive(id);
+    window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: id }));
+    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+  return (
+    <nav aria-label="White label sections" className="sticky top-[16px] hidden w-[176px] shrink-0 flex-col gap-[2px] lg:flex">
+      {items.map((i) => (
+        <button
+          key={i.id}
+          type="button"
+          aria-current={active === i.id ? "true" : undefined}
+          onClick={() => go(i.id)}
+          className={cn(
+            "motion-tap flex h-[32px] items-center rounded-[6px] px-[12px] text-left text-[14px] leading-[20px]",
+            active === i.id
+              ? "bg-[var(--hr-primary-50)] font-medium text-[var(--hr-primary-700)]"
+              : "text-pg-text hover:bg-pg",
+          )}
+        >
+          {i.label}
+        </button>
+      ))}
+    </nav>
   );
 }

@@ -804,8 +804,6 @@ import {
   type ThemeSet,
   ADVANCED_OPENS_LABELS,
   type AdvancedOpens,
-  RESET_CONTROL_LABELS,
-  type ResetControl,
   LOGO_GUIDE_LABELS,
   type LogoGuide,
   SUB_LOGO_UPLOADS_LABELS,
@@ -819,6 +817,20 @@ import {
   SUB_HEADER_SHOWS_LABELS,
   type SubHeaderShows,
   SUB_HEADER_LAYOUT_LABELS,
+  TEST_LOGO_LABELS,
+  LOGO_WIDTH_LABELS,
+  WL_NAV_LABELS,
+  CHECK_GUIDE_LABELS,
+  ASSET_FRAME_LABELS,
+  type AssetFrame,
+  type CheckGuide,
+  WL_SAVE_PLACE_LABELS,
+  type WlSavePlace,
+  WL_SECTIONS_LABELS,
+  type WlNav,
+  type WlSections,
+  type TestLogo,
+  type LogoWidth,
   type SubHeaderLayout,
   SUB_HEADER_LOGO_LABELS,
   type SubHeaderLogo,
@@ -4310,12 +4322,144 @@ function BrandingSection({
           keywords={`sub-account header logo name layout above below side by side stacked tooltip truncate logo uploads ${kw}`}
         />
       ) : null}
+      <Segmented
+        label="Test logo"
+        options={["off", "8x1", "6x1", "4x1", "3x1", "2x1"] as const}
+        value={proto.testLogo}
+        onChange={(v: TestLogo) => setProto({ testLogo: v })}
+        format={(v) => TEST_LOGO_LABELS[v]}
+        keywords={`test sample dummy logo wordmark wide aspect ratio width sub-account subaccount header ${kw}`}
+      />
+      <Note>
+        {proto.testLogo === "off"
+          ? "Sub-account headers show their real logo, if any."
+          : "A sample full logo in every sub-account header, to judge the width. Prototype only."}
+      </Note>
+      <Segmented
+        label="Logo width"
+        options={["auto", "120", "140", "160", "180", "200"] as const}
+        value={proto.logoWidth}
+        onChange={(v: LogoWidth) => setProto({ logoWidth: v })}
+        format={(v) => LOGO_WIDTH_LABELS[v]}
+        keywords={`logo width size wide wordmark full logo header agency sub-account subaccount ${kw}`}
+      />
+      <Note>
+        {proto.logoWidth === "auto"
+          ? "Earlier rule: same visual weight for every logo, 16–28px tall, up to 168px wide."
+          : `The logo fills ${proto.logoWidth}px wide; squarer logos stop at 40px tall. Agency and sub-account headers.`}
+      </Note>
+      <Segmented
+        label="White label section menu"
+        options={["side", "tabs", "none"] as const}
+        value={proto.wlNav}
+        onChange={(v: WlNav) => setProto({ wlNav: v })}
+        format={(v) => WL_NAV_LABELS[v]}
+        keywords={`white label side menu vertical tabs sidebar scroll sections nav redesign ${kw}`}
+      />
+      <Note>
+        {proto.wlNav === "tabs"
+          ? "Tabs: each menu item shows only its own section, so Save is always in view."
+          : proto.wlNav === "side"
+            ? "Scroll: one long page; the menu jumps to each section."
+            : "No menu."}
+      </Note>
+      <Segmented
+        label="White label save buttons"
+        options={["bottom", "top"] as const}
+        value={proto.wlSavePlace}
+        onChange={(v: WlSavePlace) => setProto({ wlSavePlace: v })}
+        format={(v) => WL_SAVE_PLACE_LABELS[v]}
+        keywords={`save cancel buttons top header bottom footer section white label accordion ${kw}`}
+      />
+      <Segmented
+        label="White label sections"
+        options={["open", "fold", "accordion"] as const}
+        value={proto.wlSections}
+        onChange={(v: WlSections) => setProto({ wlSections: v })}
+        format={(v) => WL_SECTIONS_LABELS[v]}
+        keywords={`collapse fold accordion accordions sections domains policies custom code css white label settings redesign ${kw}`}
+      />
+      <Note>
+        {proto.wlSections === "accordion"
+          ? "Every section is a full accordion: Brand and Theme start open. The side menu opens a section before scrolling to it."
+          : proto.wlSections === "fold"
+            ? "Domains, Policies, and Custom code start folded. Brand and Theme stay open."
+            : "Every section is open. Custom CSS and JS still stay behind Show custom code."}
+      </Note>
+      <Toggle
+        label="Light and dark logos · agency"
+        checked={proto.darkLogosAgency}
+        onChange={(darkLogosAgency) => setProto({ darkLogosAgency })}
+        keywords={`dark mode logo light logo dark version white logo dark sidebar flip agency upload ${kw}`}
+      />
+      <Toggle
+        label="Light and dark logos · sub-account"
+        checked={proto.darkLogosSub}
+        onChange={(darkLogosSub) => setProto({ darkLogosSub })}
+        keywords={`dark mode logo light logo dark version white logo dark sidebar flip sub-account business profile upload ${kw}`}
+      />
+      <Note>
+        A dark version beside each full logo and sidebar icon. When the sidebar is dark, the full logo switches to it; when the rail is dark, the icon does.
+      </Note>
+      <Toggle
+        label="Crop on upload"
+        checked={proto.logoCrop}
+        onChange={(logoCrop) => setProto({ logoCrop })}
+        keywords={`crop zoom resize logo upload modal width ideal size drag drop ${kw}`}
+      />
+      <Note>
+        {proto.logoCrop
+          ? "On: Upload opens the crop modal; dropping a file on a tile opens it with that file already loaded."
+          : "Off: drag and drop or Upload; logos are auto-trimmed."}
+      </Note>
       <Toggle
         label="Logo guidelines"
         checked={proto.logoGuides}
         onChange={(logoGuides) => setProto({ logoGuides })}
         keywords={`logo guidelines dos donts do don't show hide upload full logo onboarding white label business profile ${kw}`}
       />
+      <Segmented
+        label="Brand asset layout"
+        options={["dividers", "cards"] as const}
+        value={proto.assetFrame}
+        onChange={(v: AssetFrame) => setProto({ assetFrame: v })}
+        format={(v) => ASSET_FRAME_LABELS[v]}
+        keywords={`full logo sidebar icon cards dividers layout brand section white label business profile ${kw}`}
+      />
+      <Segmented
+        label="Guidelines on Logo check"
+        options={["tooltip", "button", "off"] as const}
+        value={proto.checkGuide}
+        onChange={(v: CheckGuide) => setProto({ checkGuide: v })}
+        format={(v) => CHECK_GUIDE_LABELS[v]}
+        keywords={`logo guidelines tooltip info button modal logo check after upload dos donts ${kw}`}
+      />
+      <Toggle
+        label="Smart upload checks"
+        checked={proto.logoChecks}
+        onChange={(logoChecks) => setProto({ logoChecks })}
+        keywords={`smart upload checks validation checklist pass fail aspect ratio square small size blurry white background dark mode contrast full logo ${kw}`}
+      />
+      <Note>
+        {proto.logoChecks
+          ? "On: after a full logo upload, a pass/fail checklist with a picture per check, next to the guidelines. Shape, size, background, light and dark sidebars. A logo too light for light sidebars can get a background, black by default."
+          : "Off: no checks after upload; the sample guidelines stay."}
+      </Note>
+      {proto.logoChecks ? (
+        <>
+          <Toggle
+            label="Auto background in dark mode"
+            checked={proto.logoCheckBg}
+            onChange={(logoCheckBg) => setProto({ logoCheckBg })}
+            keywords={`auto background dark mode fails contrast white box plate backdrop logo checks ${kw}`}
+          />
+          <Note>
+            {proto.logoCheckBg
+              ? "A logo that fails dark mode gets a background on dark sidebars. Users can switch it off from the checklist."
+              : "No automatic background. The checklist still flags dark mode problems."}
+          </Note>
+        </>
+      ) : null}
       <Toggle
         label="Fix logo edge cases"
         checked={proto.logoAutoFix}
@@ -4379,19 +4523,6 @@ function BrandingSection({
         format={(v) => ONBOARDING_LOGO_GUIDE_LABELS[v]}
         keywords={`logo guidelines dos donts do don't aspect ratio full logo wordmark upload onboarding ${kw}`}
       />
-      <Segmented
-        label="Default theme control"
-        options={["toggle", "button"] as const}
-        value={proto.resetControl}
-        onChange={(v: ResetControl) => setProto({ resetControl: v })}
-        format={(v) => RESET_CONTROL_LABELS[v]}
-        keywords={`reset default theme toggle switch preview customizations button white label ${kw}`}
-      />
-      <Note>
-        {proto.resetControl === "toggle"
-          ? "A Customizations switch in the section footer. Off previews the default theme without saving; on brings your theme back."
-          : "A Reset to default button, as before."}
-      </Note>
       <Segmented
         label="Onboarding theme step"
         options={["themes", "full"] as const}

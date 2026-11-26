@@ -128,8 +128,11 @@ export function AgencyCompanyPage({ agency }: { agency: Account }) {
       <div className="pt-[16px]">
         {shownTab === "White label" ? (
           <>
-            <WhiteLabelTab agency={agency} />
-            {brandingSection ? <BrandingThemeSection /> : null}
+            {/* Theme sits right under the logos (Nov 26, 2026). */}
+            <WhiteLabelTab
+              agency={agency}
+              themeSlot={brandingSection ? <BrandingThemeSection embedded /> : null}
+            />
           </>
         ) : shownTab === "Branding" ? (
           <BrandingThemeSection asTab />

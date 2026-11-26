@@ -328,7 +328,7 @@ export function NavHeader({
                   radius={999}
                 />
                 {agencyPlateName ? (
-                  <span className="min-w-0 truncate text-[13px] leading-[18px] font-medium text-nav-fg-muted">
+                  <span className="min-w-0 truncate text-[15px] leading-[20px] font-semibold text-nav-fg">
                     {agencyPlate.name}
                   </span>
                 ) : null}

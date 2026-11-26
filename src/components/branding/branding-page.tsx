@@ -317,7 +317,7 @@ export function BrandingPage({
             <AssetSlot
               label="Logo for light backgrounds"
               hint="Shown on light sidebars."
-              spec="PNG or SVG · 350 × 180 px · Max 2.5 MB"
+              spec="PNG or SVG · 540 × 84 px, 3:1 to 6:1 · Max 2.5 MB"
               surface="light"
               src={agencyAssets.logoLight}
               disabled={disabled}
@@ -327,7 +327,7 @@ export function BrandingPage({
             <AssetSlot
               label="Logo for dark backgrounds"
               hint="Shown on dark and brand-colored sidebars."
-              spec="PNG or SVG · 350 × 180 px · Max 2.5 MB"
+              spec="PNG or SVG · 540 × 84 px, 3:1 to 6:1 · Max 2.5 MB"
               surface="dark"
               src={agencyAssets.logoDark}
               disabled={disabled}

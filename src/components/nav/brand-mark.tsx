@@ -4,13 +4,20 @@ import { cn } from "@/lib/utils";
 import type { Account } from "@/components/accounts/accounts-data";
 import { useBrandOptional } from "@/components/accounts/brand-store";
 import { useBrandingOptional } from "@/components/branding/branding-provider";
-import type { SubHeaderShows } from "@/design/branding";
+import { useSurfacesDark } from "@/components/branding/branding-applier";
+import { LOGO_MAX_HEIGHT, TEST_LOGO_SRC, type SubHeaderShows } from "@/design/branding";
 import {
   cssColorToRgb,
   inkLuminance,
   logoTraits,
   lowContrast,
   luminance,
+  darkBgOptedOut,
+  darkBgSnapshot,
+  darkModeBackdrop,
+  lightBgFor,
+  failsDarkMode,
+  subscribeDarkBg,
   type LogoTraits,
 } from "@/lib/logo-traits";
 
@@ -76,7 +83,7 @@ interface BrandMarkProps {
 export function Wordmark({
   src,
   alt,
-  maxWidth = 168,
+  maxWidth,
   className,
 }: {
   src: string;
@@ -89,12 +96,25 @@ export function Wordmark({
   const ref = React.useRef<HTMLSpanElement>(null);
   const surface = useSurfaceLuminance(ref, fixes.enabled);
   const fix = fixes.resolve(surface);
+  /*
+   * "Logo width" (Nov 26, 2026): a fixed box the logo fills by width, its
+   * height following the aspect up to LOGO_MAX_HEIGHT — so a wide logo
+   * reaches the full width and a squarer one stops at the height cap.
+   * A caller's smaller maxWidth (side by side) still wins.
+   */
+  const logoWidth = useBrandingOptional()?.proto.logoWidth ?? "auto";
+  const box = logoWidth === "auto" ? null : Math.min(Number(logoWidth), maxWidth ?? Infinity);
+  const cap = box ?? maxWidth ?? 168;
   // A tall or square logo gets a taller row so its name stays readable.
   const height = fix.tall
     ? 40
-    : aspect
-      ? Math.round(Math.min(28, Math.max(16, Math.sqrt(2600 / aspect))))
-      : 22;
+    : box
+      ? aspect
+        ? Math.round(Math.min(LOGO_MAX_HEIGHT, box / aspect))
+        : 24
+      : aspect
+        ? Math.round(Math.min(28, Math.max(16, Math.sqrt(2600 / aspect))))
+        : 22;
   return (
     <span
       ref={ref}
@@ -112,7 +132,7 @@ export function Wordmark({
           const i = e.currentTarget;
           if (i.naturalWidth && i.naturalHeight) setAspect(i.naturalWidth / i.naturalHeight);
         }}
-        style={{ height, maxWidth }}
+        style={{ height, maxWidth: cap }}
         className={cn("w-auto object-contain object-left", className)}
       />
     </span>
@@ -128,7 +148,18 @@ export function Wordmark({
  *         hairline, so the box reads as deliberate.
  */
 export function useLogoFixes(src: string | undefined) {
-  const enabled = useBrandingOptional()?.proto.logoAutoFix ?? false;
+  const proto = useBrandingOptional()?.proto;
+  const auto = proto?.logoAutoFix ?? false;
+  /*
+   * Smart upload checks (proto logoChecks, Nov 26, 2026): a logo that fails
+   * dark mode gets a backdrop on dark sidebars — its own box colour, else
+   * white — unless "Add background in dark mode" is off, in the proto or
+   * for this logo.
+   */
+  const checksBg = (proto?.logoChecks ?? false) && (proto?.logoCheckBg ?? true);
+  React.useSyncExternalStore(subscribeDarkBg, darkBgSnapshot, darkBgSnapshot);
+  const checksOn = proto?.logoChecks ?? false;
+  const enabled = auto || checksBg || checksOn;
   const [traits, setTraits] = React.useState<{ src: string; t: LogoTraits | null } | null>(null);
   React.useEffect(() => {
     if (!enabled || !src) return;
@@ -145,14 +176,20 @@ export function useLogoFixes(src: string | undefined) {
     enabled,
     traits: t,
     resolve(surface: number | null): { tall: boolean; plate: string | null; box: boolean } {
-      if (!t) return { tall: false, plate: null, box: false };
-      const plate =
-        surface !== null && lowContrast(t, surface)
+      // The user's own background for a too-light logo, on light sidebars.
+      const userPlate = checksOn && src && surface !== null && surface >= 0.2 ? lightBgFor(src) : null;
+      if (!t) return { tall: false, plate: userPlate, box: false };
+      const autoPlate =
+        auto && surface !== null && lowContrast(t, surface)
           ? inkLuminance(t) > 0.5
             ? "#1d2939"
             : "#ffffff"
           : null;
-      return { tall: t.aspect < 1.4, plate, box: t.opaqueBg };
+      const darkPlate =
+        checksBg && src && !darkBgOptedOut(src) && surface !== null && surface < 0.2 && failsDarkMode(t)
+          ? darkModeBackdrop(t)
+          : null;
+      return { tall: auto && t.aspect < 1.4, plate: userPlate ?? autoPlate ?? darkPlate, box: auto && t.opaqueBg };
     },
   };
 }
@@ -169,6 +206,44 @@ export function useSurfaceLuminance(ref: React.RefObject<HTMLElement | null> | n
     if (next !== lum) setLum(next);
   });
   return lum;
+}
+
+/**
+ * The same plate and border fixes as the header, around any logo img — for
+ * sketches of the sidebar outside the nav, like onboarding (Nov 26, 2026).
+ * Reads the surface from the nearest painted ancestor, not the live nav.
+ */
+export function LogoFixFrame({ src, children }: { src: string; children: React.ReactNode }) {
+  const fixes = useLogoFixes(src);
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const [surface, setSurface] = React.useState<number | null>(null);
+  React.useLayoutEffect(() => {
+    if (!fixes.enabled) return;
+    let el: HTMLElement | null = ref.current?.parentElement ?? null;
+    let bg = "";
+    while (el) {
+      const c = getComputedStyle(el).backgroundColor;
+      if (c && c !== "transparent" && !/rgba\(.*,\s*0\)$/.test(c)) { bg = c; break; }
+      el = el.parentElement;
+    }
+    const rgb = cssColorToRgb(bg || "#ffffff");
+    const next = rgb ? Math.round(luminance(...rgb) * 1000) / 1000 : null;
+    if (next !== surface) setSurface(next);
+  });
+  const fix = fixes.resolve(surface);
+  return (
+    <span
+      ref={ref}
+      className={cn(
+        "inline-flex min-w-0 shrink items-center",
+        fix.plate && "rounded-[5px] px-[6px] py-[2px]",
+        fix.box && "overflow-hidden rounded-[5px] shadow-[0_0_0_1px_rgba(16,24,40,0.14)]",
+      )}
+      style={fix.plate ? { background: fix.plate } : undefined}
+    >
+      {children}
+    </span>
+  );
 }
 
 /** One line on what the header did to this logo, or null. */
@@ -194,7 +269,11 @@ export function useLogoFixNote(src: string | undefined): string | null {
  */
 export function useAgencyLogoFallback(account: Account, logoSrc?: string): string | null {
   const proto = useBrandingOptional()?.proto;
-  const agencySrc = useBrandOptional()?.uploads.agency?.wordmarkSrc;
+  const up = useBrandOptional()?.uploads.agency;
+  // Dark sidebar + agency dark logos on: the dark version (Nov 26, 2026).
+  const sidebarDark = useSurfacesDark().sidebar;
+  const agencySrc =
+    sidebarDark && (proto?.darkLogosAgency ?? true) && up?.wordmarkDarkSrc ? up.wordmarkDarkSrc : up?.wordmarkSrc;
   // "Agency logo" (default): the agency's, whatever the sub-account uploaded.
   if (proto?.subHeaderLogo !== "agency" || !agencySrc || logoSrc || account.id === "agency") return null;
   return agencySrc;
@@ -244,7 +323,7 @@ export function WordmarkWithName({ src, name, alt }: { src: string; name: string
     };
   }, [layout, src, name]);
   const label = (
-    <span className="max-w-full min-w-0 truncate text-[13px] leading-[18px] font-medium text-nav-fg-muted" title={name}>
+    <span className="max-w-full min-w-0 truncate text-[15px] leading-[20px] font-semibold text-nav-fg" title={name}>
       {name}
     </span>
   );
@@ -280,6 +359,24 @@ export function BrandMark({
   const wordmark = logoSrc ? undefined : account.wordmarkSrc;
   const subShows = useSubHeaderShows(account);
   const agencyFallback = useAgencyLogoFallback(account, logoSrc);
+  /*
+   * "Test logo" (Nov 26, 2026): a sample full logo in every sub-account
+   * header, to judge "Logo width" against real shapes. Follows "Sub-account
+   * header shows" as an upload would. Prototype only.
+   */
+  const proto = useBrandingOptional()?.proto;
+  const testLogo = proto?.testLogo ?? "off";
+  if (testLogo !== "off" && account.id !== "agency" && !markAccount) {
+    const src = TEST_LOGO_SRC[testLogo];
+    const shows = proto?.subHeaderShows ?? "both";
+    if (shows === "both") return <WordmarkWithName src={src} name={account.name} alt={alt} />;
+    if (shows === "logo")
+      return (
+        <span className="flex min-w-0 items-center" title={alt}>
+          <Wordmark src={src} alt={account.name} />
+        </span>
+      );
+  }
   if (agencyFallback && !markAccount) {
     return <WordmarkWithName src={agencyFallback} name={account.name} alt={alt} />;
   }
@@ -328,7 +425,8 @@ export function BrandMark({
           />
         )
       ) : null}
-      <span className="truncate text-[14px] leading-[20px] font-semibold text-nav-fg">
+      {/* Agency and sub-account names: 15px semibold (Nov 26, 2026). */}
+      <span className="truncate text-[15px] leading-[20px] font-semibold text-nav-fg">
         {account.name}
       </span>
     </span>

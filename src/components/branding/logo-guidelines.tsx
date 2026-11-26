@@ -24,7 +24,7 @@ const WORDMARK = "/wordmark-acme-agency.svg";
 const ICON = "/icon-acme-agency.svg";
 
 export const LOGO_ASPECT_GUIDANCE =
-  "Use a horizontal logo, about 4:1 (for example 400 × 100 px). SVG or a transparent PNG works best.";
+  "Use a horizontal logo, 3:1 to 6:1 (for example 540 × 84 px). SVG or a transparent PNG works best.";
 
 type Example = { id: string; ok: boolean; title: string; art: React.ReactNode };
 
@@ -35,7 +35,7 @@ function examples(h: number): Example[][] {
   const logo = <img src={WORDMARK} alt="" style={{ height: h }} className="w-auto" />;
   return [
     [
-      { id: "wide", ok: true, title: "Horizontal, about 4:1", art: logo },
+      { id: "wide", ok: true, title: "Horizontal, 3:1 to 6:1", art: logo },
       {
         id: "stacked",
         ok: false,
@@ -247,7 +247,10 @@ export function GuideAccordion({
   children,
   defaultOpen = false,
   openTitle,
+  bare = false,
 }: {
+  /** No box of its own: fills a card footer edge to edge (Nov 26, 2026). */
+  bare?: boolean;
   /** Title while open, when it should change (e.g. "Hide …"). */
   openTitle?: string;
   title: string;
@@ -259,13 +262,16 @@ export function GuideAccordion({
   const [open, setOpen] = React.useState(defaultOpen);
   const id = React.useId();
   return (
-    <div className="flex flex-col rounded-[8px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+    <div className={cn("flex flex-col", !bare && "rounded-[8px] shadow-[inset_0_0_0_1px_var(--pg-border)]")}>
       <button
         type="button"
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen((o) => !o)}
-        className="motion-tap flex min-h-[40px] items-center gap-[8px] rounded-[8px] px-[12px] py-[8px] text-left hover:bg-pg"
+        className={cn(
+          "motion-tap flex items-center gap-[8px] text-left",
+          bare ? "min-h-[32px] rounded-[6px] py-[4px]" : "min-h-[48px] rounded-[8px] px-[12px] py-[8px] hover:bg-pg",
+        )}
       >
         {icon}
         <span className="flex min-w-0 flex-1 flex-col">
@@ -279,7 +285,7 @@ export function GuideAccordion({
         />
       </button>
       {open ? (
-        <div id={id} className="motion-panel-in px-[12px] pt-[4px] pb-[12px]">
+        <div id={id} className={cn("motion-panel-in", bare ? "pt-[12px]" : "px-[12px] pt-[4px] pb-[12px]")}>
           {children}
         </div>
       ) : null}
@@ -305,7 +311,7 @@ export function LogoGuidelinesAccordion() {
     <GuideAccordion
       title="Show logo guidelines"
       openTitle="Hide logo guidelines"
-      hint="Horizontal, about 4:1. See what works best."
+      hint="Horizontal, 3:1 to 6:1. See what works best."
       icon={<Eye size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />}
     >
       <LogoGuidelines compact />

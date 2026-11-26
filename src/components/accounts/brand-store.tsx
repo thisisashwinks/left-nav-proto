@@ -18,6 +18,12 @@ export interface BrandUpload {
   logoSrc?: string;
   /** The wide logo. */
   wordmarkSrc?: string;
+  /**
+   * Dark-sidebar versions (proto darkLogos*, Nov 26, 2026): used instead of
+   * the two above while the sidebar (wordmark) or rail (icon) is dark.
+   */
+  logoDarkSrc?: string;
+  wordmarkDarkSrc?: string;
 }
 
 export type BrandKind = keyof BrandUpload;
@@ -117,6 +123,29 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
   );
 
   return <BrandContext value={value}>{children}</BrandContext>;
+}
+
+/**
+ * The uploads as the current surfaces should show them: each account with
+ * dark versions turned on swaps them in where its surface is dark. Returns
+ * the same map when nothing changes.
+ */
+export function modeUploads(
+  uploads: Record<string, BrandUpload>,
+  dark: { sidebar: boolean; rail: boolean },
+  enabled: (accountId: string) => boolean,
+): Record<string, BrandUpload> {
+  if (!dark.sidebar && !dark.rail) return uploads;
+  let out: Record<string, BrandUpload> | null = null;
+  for (const [id, up] of Object.entries(uploads)) {
+    if (!enabled(id)) continue;
+    const word = dark.sidebar && up.wordmarkDarkSrc ? up.wordmarkDarkSrc : up.wordmarkSrc;
+    const icon = dark.rail && up.logoDarkSrc ? up.logoDarkSrc : up.logoSrc;
+    if (word === up.wordmarkSrc && icon === up.logoSrc) continue;
+    out ??= { ...uploads };
+    out[id] = { ...up, ...(word !== undefined ? { wordmarkSrc: word } : {}), ...(icon !== undefined ? { logoSrc: icon } : {}) };
+  }
+  return out ?? uploads;
 }
 
 /**

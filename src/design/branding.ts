@@ -540,6 +540,69 @@ export const ICON_EDGE_LABELS: Record<IconEdge, string> = {
   "gray-200": "Gray 200",
 };
 
+/**
+ * A sample full logo for the sub-account header (Nov 26, 2026, Ashwin), to
+ * settle the logo width against real shapes before an upload exists. "off"
+ * shows whatever the account really has. Prototype only — goes once the
+ * width is locked.
+ */
+export type TestLogo = "off" | "8x1" | "6x1" | "4x1" | "3x1" | "2x1";
+export const TEST_LOGO_LABELS: Record<TestLogo, string> = {
+  off: "Off",
+  "8x1": "8:1",
+  "6x1": "6:1",
+  "4x1": "4:1",
+  "3x1": "3:1",
+  "2x1": "2:1",
+};
+export const TEST_LOGO_SRC: Record<Exclude<TestLogo, "off">, string> = {
+  "8x1": "/test-logo-8x1.svg",
+  "6x1": "/test-logo-6x1.svg",
+  "4x1": "/test-logo-4x1.svg",
+  "3x1": "/test-logo-3x1.svg",
+  "2x1": "/test-logo-2x1.svg",
+};
+
+/**
+ * How wide a full logo is drawn in the sidebar header, agency and
+ * sub-account (Nov 26, 2026, Ashwin). "auto" is the earlier rule (same
+ * visual weight, 16–28px tall, up to 168px). A number is the box the logo
+ * fills: width first, height following the aspect, capped at 40px so a
+ * squarer logo stops growing. Once one is picked it becomes the only rule.
+ */
+export type LogoWidth = "auto" | "120" | "140" | "160" | "180" | "200";
+export const LOGO_WIDTH_LABELS: Record<LogoWidth, string> = {
+  auto: "Auto",
+  "120": "120px",
+  "140": "140px",
+  "160": "160px",
+  "180": "180px",
+  "200": "200px",
+};
+export type WlSections = "open" | "fold" | "accordion";
+export const WL_SECTIONS_LABELS: Record<WlSections, string> = {
+  open: "All open",
+  fold: "Fold others",
+  accordion: "Accordions",
+};
+export type WlNav = "none" | "side" | "tabs";
+export const WL_NAV_LABELS: Record<WlNav, string> = { none: "None", side: "Scroll", tabs: "Tabs" };
+/** Where a White label section's Save and Cancel sit (Nov 26, 2026). */
+/** How the Logo check offers the guidelines once a logo is uploaded (Nov 26, 2026). */
+export type CheckGuide = "tooltip" | "button" | "off";
+export const CHECK_GUIDE_LABELS: Record<CheckGuide, string> = { tooltip: "Info tooltip", button: "Show guidelines button", off: "Hidden" };
+/** Brand assets as cards, or open rows split by dividers (Nov 26, 2026). */
+export type AssetFrame = "dividers" | "cards";
+export const ASSET_FRAME_LABELS: Record<AssetFrame, string> = { dividers: "Dividers", cards: "Cards" };
+export type WlSavePlace = "bottom" | "top";
+export const WL_SAVE_PLACE_LABELS: Record<WlSavePlace, string> = { bottom: "Bottom of section", top: "Section header" };
+/** Height cap under a fixed logo width. */
+/**
+ * Height cap under a fixed logo width: the original 28px (Nov 26, 2026).
+ * The box got wider; the logo must not get taller with it.
+ */
+export const LOGO_MAX_HEIGHT = 28;
+
 export type SubHeaderLogo = "agency" | "sub";
 export const SUB_HEADER_LOGO_LABELS: Record<SubHeaderLogo, string> = {
   agency: "Agency logo",
@@ -724,6 +787,22 @@ export interface BrandingProto {
    */
   logoGuides: boolean;
   /**
+   * White label sections (Nov 26, 2026): all open, every section but Brand
+   * and Theme folded, or every section a full accordion.
+   */
+  wlSections: WlSections;
+  /** White label: a vertical section menu that scrolls to each section. */
+  wlNav: WlNav;
+  wlSavePlace: WlSavePlace;
+  checkGuide: CheckGuide;
+  assetFrame: AssetFrame;
+  /** Light and dark logo slots, agency (Nov 26, 2026). On by default. */
+  darkLogosAgency: boolean;
+  /** Light and dark logo slots, sub-accounts. Off by default. */
+  darkLogosSub: boolean;
+  /** Crop step on upload: Upload opens a crop modal; no drag and drop on the row. */
+  logoCrop: boolean;
+  /**
    * Fix logo edge cases ourselves (Nov 25, 2026): light or dark logos get a
    * contrasting plate, logos on their own box get rounded with a hairline,
    * tall logos get a taller row. Off by default.
@@ -754,6 +833,23 @@ export interface BrandingProto {
    * sub-account's own. See SubHeaderLogo.
    */
   subHeaderLogo: SubHeaderLogo;
+  /** Sample full logo in the sub-account header. See TestLogo. */
+  testLogo: TestLogo;
+  /** Full logo width in the sidebar header. See LogoWidth. */
+  logoWidth: LogoWidth;
+  /**
+   * Smart upload checks (Nov 26, 2026, Ashwin): after a full logo upload,
+   * a pass/fail checklist drawn with the uploaded file — shape, size,
+   * background, light and dark sidebars — in place of the sample "Acme"
+   * guidelines. Off by default.
+   */
+  logoChecks: boolean;
+  /**
+   * With checks on: a logo that fails dark mode gets a background behind
+   * it on dark sidebars automatically (default on). The user can switch it
+   * off per logo from the checklist.
+   */
+  logoCheckBg: boolean;
   /** What the agency had uploaded before Switchyard — sets up the demo. */
   priorLogos: PriorLogos;
   modeScope: BrandingReach;
@@ -796,6 +892,14 @@ export const DEFAULT_BRANDING_PROTO: BrandingProto = {
   subLogoUploads: "keep",
   keepSubAvatar: true,
   logoGuides: true,
+  wlSections: "accordion",
+  wlNav: "side",
+  wlSavePlace: "bottom",
+  checkGuide: "button",
+  assetFrame: "dividers",
+  darkLogosAgency: true,
+  darkLogosSub: false,
+  logoCrop: true,
   logoAutoFix: false,
   fixNotePlacement: "row",
   fixNoteStyle: "callout",
@@ -804,6 +908,10 @@ export const DEFAULT_BRANDING_PROTO: BrandingProto = {
   subHeaderShows: "both",
   subHeaderLayout: "logo-top",
   subHeaderLogo: "agency",
+  testLogo: "off",
+  logoWidth: "180",
+  logoChecks: true,
+  logoCheckBg: true,
   priorLogos: "none",
   modeScope: "chrome",
   fontScope: "chrome",
@@ -1332,7 +1440,10 @@ export function logoLightThemes(colors: readonly string[]): BrandingPreset[] {
 /** The minimal set: logo themes first, then curated light presets, 8 at most. */
 export function minimalPresets(logo: readonly BrandingPreset[]): BrandingPreset[] {
   const curated = MINIMAL_PRESET_IDS.map((id) => BRANDING_PRESETS.find((p) => p.id === id)!).filter(Boolean);
-  return [...logo, ...curated].slice(0, MINIMAL_MAX_THEMES);
+  // Default always leads (Nov 26, 2026): it is how you go back.
+  const def = curated.find((p) => p.id === "highrise");
+  const rest = [...logo, ...curated].filter((p) => p !== def && p.id !== "highrise");
+  return [...(def ? [def] : []), ...rest].slice(0, MINIMAL_MAX_THEMES);
 }
 
 /**

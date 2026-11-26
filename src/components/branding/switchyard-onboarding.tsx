@@ -87,6 +87,7 @@ import {
   useThemeScopeAsk,
 } from "@/components/branding/theme-scope";
 import { BrandAssetRow } from "@/components/settings/logo-upload-field";
+import { LogoFixFrame } from "@/components/nav/brand-mark";
 import { brandInitials, logoName, trimLogo } from "@/lib/logo-trim";
 
 const AGENCY_ID = agency.id;
@@ -466,7 +467,7 @@ function SplitLook({ flow }: { flow: Flow }) {
           <div key={step} className="ob-in flex min-h-0 flex-1 flex-col px-[32px] pt-[32px] pb-[24px]">
             <div className="flex h-[36px] items-center">
               {up.wordmarkSrc ? (
-                <img src={up.wordmarkSrc} alt="" className="h-[32px] w-auto max-w-[200px] object-contain object-left" />
+                <LogoFixFrame src={up.wordmarkSrc}><img src={up.wordmarkSrc} alt="" className="h-[32px] w-auto max-w-[200px] object-contain object-left" /></LogoFixFrame>
               ) : (
                 <span className="flex size-[36px] items-center justify-center rounded-[10px] bg-[var(--hr-primary-600)] text-white">
                   <Sparkles size={18} aria-hidden="true" />
@@ -641,8 +642,9 @@ function LogosStep({ narrow }: { narrow: boolean }) {
         compact
         label="Full logo"
         hint="Replaces your agency name at the top of the sidebar."
-        spec="Horizontal, about 4:1 · Max 2.5 MB"
+        spec="Horizontal, 3:1 to 6:1 · Max 2.5 MB"
         aspect="wide"
+            darkFor={{ accountId: AGENCY_ID, kind: "wordmark" }}
         guide={proto.onboardingLogoGuide === "button"}
         {...(up.wordmarkSrc ? { src: up.wordmarkSrc } : {})}
         onPick={(src, fileName) => void setAgencyFullLogo(brand, src, fileName)}
@@ -658,9 +660,10 @@ function LogosStep({ narrow }: { narrow: boolean }) {
         </button>
       )}
       {/* What kind of file to upload, before it is picked (Nov 24, 2026). */}
-      {proto.logoGuides && proto.onboardingLogoGuide === "inline" ? <LogoGuidelines compact /> : null}
-      {proto.logoGuides && proto.onboardingLogoGuide === "accordion" ? <LogoGuidelinesAccordion /> : null}
-      {proto.logoGuides && proto.onboardingLogoGuide === "split" ? <LogoDosDontsAccordions /> : null}
+      {/* With smart checks on, the upload's own checklist replaces these once there is one (Nov 26, 2026). */}
+      {proto.logoGuides && !(proto.logoChecks && up.wordmarkSrc) && proto.onboardingLogoGuide === "inline" ? <LogoGuidelines compact /> : null}
+      {proto.logoGuides && !(proto.logoChecks && up.wordmarkSrc) && proto.onboardingLogoGuide === "accordion" ? <LogoGuidelinesAccordion /> : null}
+      {proto.logoGuides && !(proto.logoChecks && up.wordmarkSrc) && proto.onboardingLogoGuide === "split" ? <LogoDosDontsAccordions /> : null}
 
       <div aria-hidden="true" className="h-px w-full bg-pg-border" />
 
@@ -670,6 +673,7 @@ function LogosStep({ narrow }: { narrow: boolean }) {
         hint={up.logoSrc ? "Shows in the rail, the collapsed sidebar, and as your favicon." : "Optional. Also your favicon. Without one, we show your initials."}
         spec="Square · Min 128 × 128 px · Max 2.5 MB"
         aspect="square"
+            darkFor={{ accountId: AGENCY_ID, kind: "logo" }}
         {...(up.logoSrc ? { src: up.logoSrc } : {})}
         fallback={{ ...logo, initials }}
         {...(iconError ? { error: iconError } : {})}
@@ -698,7 +702,7 @@ function LogosStep({ narrow }: { narrow: boolean }) {
       )}
     </div>
     {/* Outside the card, after both rows (proto onboardingLogoGuide "below"). */}
-    {proto.logoGuides && proto.onboardingLogoGuide === "below" ? (
+    {proto.logoGuides && !(proto.logoChecks && up.wordmarkSrc) && proto.onboardingLogoGuide === "below" ? (
       <div className="flex flex-col gap-[4px]">
         <h3 className="text-[14px] leading-[20px] font-semibold text-pg-heading">Full logo guidelines</h3>
         <LogoGuidelines compact />
@@ -1259,7 +1263,7 @@ function PreviewMock({ theme, height, full = false }: { theme: BrandingTheme; he
       <div className="flex min-w-0 shrink-0 flex-col gap-[6px] px-[8px] pt-[10px]" style={{ width: full ? 190 : undefined, flex: full ? undefined : 1 }}>
         <div className="flex items-center px-[4px]" style={{ height: avatar }}>
           {up.wordmarkSrc ? (
-            <img src={up.wordmarkSrc} alt="" className="w-auto max-w-full object-contain object-left" style={{ height: full ? 20 : 14 }} />
+            <LogoFixFrame src={up.wordmarkSrc}><img src={up.wordmarkSrc} alt="" className="w-auto max-w-full object-contain object-left" style={{ height: full ? 20 : 14 }} /></LogoFixFrame>
           ) : (
             <span className="truncate font-semibold" style={{ color: d.sidebar.fg, fontSize: full ? 13 : 11 }}>
               {agency.name}

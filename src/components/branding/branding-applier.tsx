@@ -229,6 +229,27 @@ export function useLiveChrome(): LiveChrome {
  *
  * Safe outside <BrandingProvider>: returns the identity function.
  */
+/**
+ * Whether the sidebar and the rail are painted dark right now (Nov 26,
+ * 2026) — what picks an account's dark-mode logo and icon.
+ */
+export function useSurfacesDark(): { sidebar: boolean; rail: boolean } {
+  const ctx = useBrandingOptional();
+  const { activeThemeAccount } = useTheme();
+  const live = ctx?.live ?? null;
+  const minimal = ctx?.proto.themeSet === "minimal";
+  const railStep = ctx?.proto.railStep ?? "step";
+  const darkStrength = ctx?.proto.darkStrength ?? "deep";
+  const theme = live ? minimalTheme(resolveTheme(live, activeThemeAccount), !minimal) : null;
+  const mode: Mode = useModeFor(theme);
+  return React.useMemo(() => {
+    if (!theme || isDefaultTheme(theme)) return { sidebar: mode === "dark", rail: mode === "dark" };
+    const c = deriveChrome(theme, mode, { railStep, darkStrength });
+    return { sidebar: !isLightSurface(c.sidebar.bg), rail: !isLightSurface(c.rail.bg) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, activeThemeAccount, mode, railStep, darkStrength, minimal]);
+}
+
 export function useBrandLogo(): (account: Account) => Account {
   const ctx = useBrandingOptional();
   const { effective, activeThemeAccount } = useTheme();

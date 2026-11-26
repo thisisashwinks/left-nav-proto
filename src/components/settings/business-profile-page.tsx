@@ -193,8 +193,10 @@ export function BusinessProfilePage({ account }: { account: Account }) {
             <BrandAssetRow
               label="Full logo"
               hint="Your primary logo, displayed in emails and the classic sidebar."
-              spec="Ideal: 350 × 180 px · Max 2.5 MB"
+              spec="Ideal: 540 × 84 px, 3:1 to 6:1 · Max 2.5 MB"
               aspect="wide"
+            darkFor={{ accountId: account.id, kind: "wordmark" }}
+            owner="sub"
               guide
               {...(shownWordmark ? { src: shownWordmark } : {})}
               onPick={(src, fileName) => void pickWordmark(src, fileName)}
@@ -209,6 +211,7 @@ export function BusinessProfilePage({ account }: { account: Account }) {
               hint="A compact version of your logo, shown in the new sidebar and as your browser tab’s favicon."
               spec="Square · Min 128 × 128 px · Max 2.5 MB"
               aspect="square"
+            darkFor={{ accountId: account.id, kind: "logo" }}
               owner="sub"
               {...(shownIcon ? { src: shownIcon } : {})}
               fallback={{ ...account.logo, initials: avatarInitials, from: avatarColor, to: avatarColor, brandTile: true }}
