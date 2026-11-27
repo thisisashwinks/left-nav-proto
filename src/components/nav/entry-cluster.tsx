@@ -28,7 +28,7 @@ import { SEARCH_BORDER_VARS } from "@/design/theme";
 import { announce, restoreFocus } from "@/lib/a11y";
 import { RailTooltip } from "./rail-tooltip";
 import { GamepadDirectional } from "lucide-react";
-import { useNavCollapse } from "./nav-collapse";
+import { fadeProps, onlyProps, useNavCollapse } from "./nav-collapse";
 import { EditMoreMenu } from "./edit-more-menu";
 import { useNavTemplates } from "./nav-templates";
 import { useTruncationTitle } from "@/lib/use-truncation-title";
@@ -98,10 +98,13 @@ export function EntryCluster({
    * 12 there. Ashwin, Nov 17.
    */
   const { entryLayout, entryRadius, searchBorder } = useTheme().effective;
+  const { collapsed } = useNavCollapse();
+  const top = entryLayout === "top";
   return (
     <div
       className={cn(
         "flex w-full shrink-0 items-center gap-[8px]",
+        top && "relative",
         // Under the logo, on the same inset as the Launchpad card and rows
         // below it, so the field's edges line up with theirs. Ashwin, Nov 24.
         entryLayout === "top" ? "px-[var(--t-nav-pad,10px)] pb-[12px]" : "px-[12px] pb-[22px]",
@@ -129,6 +132,24 @@ export function EntryCluster({
         {...(edit ? { edit } : {})}
       />
       {/*
+        Collapsed, under the logo (Nov 26, 2026): the field fades out with the
+        labels, and a search tile fades in at the same y — the bar keeps a way
+        into ⌘K instead of a blank gap where the row was.
+      */}
+      {top && searchEnabled ? (
+        <RailTooltip label="Search" show={collapsed}>
+          <button
+            {...onlyProps(collapsed)}
+            type="button"
+            aria-label="Search"
+            onClick={onSearch}
+            className="motion-tap absolute top-0 left-[12px] flex h-[32px] w-[var(--bar-tile,40px)] items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+          >
+            <Search size={16} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </RailTooltip>
+      ) : null}
+      {/*
         Create, beside find. See QUICK_ACTION_SPOTS.
 
         Square rather than a labelled button: the row has one field in it that
@@ -149,6 +170,7 @@ export function EntryCluster({
         */
         <RailTooltip label="Quick actions" placement="below">
           <button
+            {...fadeProps(collapsed)}
             type="button"
             aria-label="Quick actions"
             onClick={onQuickActions}
@@ -1339,8 +1361,14 @@ function EditTool({
  * edit mode without keeping a 36px hole where the pill used to be.
  */
 export function EditNavAnchor({ edit }: { edit: EditNavProps }) {
+  /*
+   * Collapsed, the line gets a lane of its own (Nov 26, 2026): in the 64px
+   * bar Edit slides to the centre, and floating up from a zero-height line
+   * it landed on the tile above it (What's new, Settings).
+   */
+  const { collapsed } = useNavCollapse();
   return (
-    <div className="relative h-0 w-full">
+    <div className={cn("relative w-full", collapsed ? "mt-[8px] h-[26px]" : "h-0")}>
       <EditNavButton {...edit} atFoot />
     </div>
   );

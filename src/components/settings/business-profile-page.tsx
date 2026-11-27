@@ -104,7 +104,8 @@ export function BusinessProfilePage({ account }: { account: Account }) {
   // Hidden when the sidebar keeps its look AND the avatar isn't applied
   // either (proto subLogoUploads "keep" + keepSubAvatar off, Nov 25, 2026).
   const avatarApplies = proto.subLogoUploads !== "keep" || proto.keepSubAvatar;
-  const showAvatarEditor = avatarApplies && (!shownIcon || proto.iconDisplay === "avatar");
+  // Hidden unless the prototype turns it on (Nov 27, 2026): sub-account avatar colour is not updated yet.
+  const showAvatarEditor = proto.subAvatarEdit && avatarApplies && (!shownIcon || proto.iconDisplay === "avatar");
 
   const pickWordmark = async (src: string, fileName?: string) => {
     const [trimmed, name] = await Promise.all([trimLogo(src), logoName(src, fileName)]);

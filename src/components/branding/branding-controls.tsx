@@ -658,27 +658,30 @@ export function PresetGrid({
     const all = minimalPresets(suggested);
     const fromLogo = all.filter((p) => suggested.includes(p));
     const rest = all.filter((p) => !suggested.includes(p));
+    /*
+     * Onboarding (Nov 27, 2026): two sections, Recommended (themes from the
+     * logo) on top, then Other themes with Default first — and Default stays
+     * the one selected until someone picks.
+     */
     if (segregate && fromLogo.length) {
       return (
         <div className="flex flex-col gap-[8px]">
-          {/* Default first, ahead of the logo themes (Nov 26, 2026). */}
-          <div role="radiogroup" aria-label="Default theme" className="grid gap-[8px]" style={grid}>
-            {all.slice(0, 1).map((p) => tile(p))}
-          </div>
-          <div className="mt-[4px] text-[13px] leading-[18px] font-medium text-pg-text">Suggested from your logo</div>
-          <div role="radiogroup" aria-label="Suggested from your logo" className="grid gap-[8px]" style={grid}>
+          <div className="text-[13px] leading-[18px] font-medium text-pg-text">Recommended</div>
+          <div role="radiogroup" aria-label="Recommended themes" className="grid gap-[8px]" style={grid}>
             {fromLogo.map((p) => tile(p))}
           </div>
-          <div className="mt-[4px] text-[13px] leading-[18px] font-medium text-pg-text">More themes</div>
-          <div role="radiogroup" aria-label="Themes" className="grid gap-[8px]" style={grid}>
-            {rest.filter((p) => p !== all[0]).map((p) => tile(p))}
+          <div className="mt-[4px] text-[13px] leading-[18px] font-medium text-pg-text">Other themes</div>
+          <div role="radiogroup" aria-label="Other themes" className="grid gap-[8px]" style={grid}>
+            {rest.map((p) => tile(p))}
           </div>
         </div>
       );
     }
+    // Everywhere else one grid: Default, then the logo's themes marked
+    // "Recommended", then the rest (Nov 27, 2026).
     return (
       <div role="radiogroup" aria-label="Themes" className="grid gap-[8px]" style={grid}>
-        {all.map((p) => tile(p))}
+        {all.map((p) => tile(p, fromLogo.includes(p)))}
       </div>
     );
   }
@@ -715,7 +718,7 @@ export function PresetGrid({
     </div>
   );
 
-  function tile(p: BrandingPreset) {
+  function tile(p: BrandingPreset, recommended = false) {
         const selected = value.presetId === p.id;
         return (
           <button
@@ -724,7 +727,7 @@ export function PresetGrid({
             role="radio"
             aria-checked={selected}
             disabled={disabled}
-            title={p.label}
+            title={recommended ? `${p.label} - Recommended` : p.label}
             onClick={() => onChange(applyPreset(value, p))}
             className={cn(
               "motion-tap flex h-[40px] min-w-0 items-center gap-[8px] rounded-[8px] bg-pg-surface px-[10px] text-left",
@@ -735,13 +738,20 @@ export function PresetGrid({
             )}
           >
             <PresetDot preset={p} mode={mode} />
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate text-[14px] leading-[20px]",
-                selected ? "font-medium text-pg-heading" : "text-pg-text",
-              )}
-            >
-              {p.label}
+            {/* "Recommended" on its own small line, so the name never truncates for it. */}
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span
+                className={cn(
+                  "min-w-0 truncate",
+                  recommended ? "text-[13px] leading-[16px]" : "text-[14px] leading-[20px]",
+                  selected ? "font-medium text-pg-heading" : "text-pg-text",
+                )}
+              >
+                {p.label}
+              </span>
+              {recommended ? (
+                <span className="truncate text-[11px] leading-[14px] text-pg-muted"><span className="sr-only">, </span>Recommended</span>
+              ) : null}
             </span>
             {selected ? <Check size={16} aria-hidden="true" className="shrink-0 text-pg-heading" /> : null}
           </button>

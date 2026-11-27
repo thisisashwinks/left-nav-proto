@@ -4419,6 +4419,25 @@ function BrandingSection({
         keywords={`logo guidelines dos donts do don't show hide upload full logo onboarding white label business profile ${kw}`}
       />
       <Segmented
+        label="Onboarding back button"
+        options={["footer", "header"] as const}
+        value={proto.onboardingBack}
+        onChange={(v: "footer" | "header") => setProto({ onboardingBack: v })}
+        format={(v) => (v === "footer" ? "Footer, left" : "Header")}
+        keywords={`onboarding back button footer header modal previous step ${kw}`}
+      />
+      <Toggle
+        label="Sub-account avatar editor"
+        checked={proto.subAvatarEdit}
+        onChange={(subAvatarEdit) => setProto({ subAvatarEdit })}
+        keywords={`sub-account avatar initials background colour color business profile editor ${kw}`}
+      />
+      <Note>
+        {proto.subAvatarEdit
+          ? "On: Business profile shows Avatar initials and background."
+          : "Off: Business profile hides the avatar initials and background."}
+      </Note>
+      <Segmented
         label="Brand asset layout"
         options={["dividers", "cards"] as const}
         value={proto.assetFrame}

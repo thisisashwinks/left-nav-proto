@@ -307,7 +307,7 @@ export function BrandAssetRow({
         // draws a rule between assets (proto assetFrame).
         framed
           ? "overflow-hidden rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)]"
-          : "gap-[12px] py-[20px] first:pt-0 last:pb-0",
+          : "gap-[12px]",
       )}
     >
       {/*

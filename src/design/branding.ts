@@ -796,6 +796,10 @@ export interface BrandingProto {
   wlSavePlace: WlSavePlace;
   checkGuide: CheckGuide;
   assetFrame: AssetFrame;
+  /** Sub-account avatar initials + colour on Business profile (Nov 27, 2026). Off: hidden. */
+  subAvatarEdit: boolean;
+  /** Onboarding Back button: in the footer, left (default), or the header (Nov 27, 2026). */
+  onboardingBack: "footer" | "header";
   /** Light and dark logo slots, agency (Nov 26, 2026). On by default. */
   darkLogosAgency: boolean;
   /** Light and dark logo slots, sub-accounts. Off by default. */
@@ -897,6 +901,8 @@ export const DEFAULT_BRANDING_PROTO: BrandingProto = {
   wlSavePlace: "bottom",
   checkGuide: "button",
   assetFrame: "dividers",
+  subAvatarEdit: false,
+  onboardingBack: "footer",
   darkLogosAgency: true,
   darkLogosSub: false,
   logoCrop: true,

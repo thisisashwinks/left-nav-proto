@@ -434,7 +434,7 @@ export function WhiteLabelIdealTab({
             wlProto?.assetFrame === "cards"
               ? "flex flex-col gap-[16px]"
               : // Dividers: between the assets, and one under them before the brand fields.
-                "flex flex-col divide-y divide-pg-border border-b border-pg-border pb-[20px]",
+                "flex flex-col divide-y divide-pg-border border-b border-pg-border pb-[20px] [&>*]:py-[20px] [&>*:first-child]:pt-0 [&>*:last-child]:pb-0",
           )}
         >
           <BrandAssetRow

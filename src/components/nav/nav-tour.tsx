@@ -986,8 +986,8 @@ const STEPS = {
     id: "ed-rows",
     small: true,
     title: "Customize any item",
-    body: "Use ⋮ on any category or product to move, rename, hide, or change its icon.",
-    doBody: `Use ⋮ on ${REORDER_MOVES} to move it up, rename it, hide it, or change its icon.`,
+    body: "Use the menu on any item to move, rename, hide, or change its icon.",
+    doBody: `Use the menu on ${REORDER_MOVES} to move it up, rename it, hide it, or change its icon.`,
     side: "right",
     reveal: true,
     /* The row's ⋮ rather than its grip: every edit lives in that menu. Ashwin, Nov 19. */

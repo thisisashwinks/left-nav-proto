@@ -352,10 +352,11 @@ function StepperLook({ flow }: { flow: Flow }) {
   const { step, done } = flow;
   const at = done ? flow.steps.length : step;
   const stepper = [...flow.steps, DONE_STEP];
+  const backInFooter = useBranding().proto.onboardingBack !== "header";
   return (
     <Frame width={860} height={600} className="flex-col">
       <header className="flex shrink-0 items-center gap-[6px] px-[16px] pt-[12px] pb-[12px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
-        {!done && step > 0 ? (
+        {!done && step > 0 && !backInFooter ? (
           <button
             type="button"
             aria-label="Back"
@@ -425,16 +426,25 @@ function StepperLook({ flow }: { flow: Flow }) {
                   </div>
                 )}
               </div>
-              <footer className="flex shrink-0 items-center justify-end gap-[12px] px-[16px] py-[12px] shadow-[inset_0_1px_0_0_var(--pg-border)]">
-                <Btn onClick={flow.later}>Skip for now</Btn>
-                <Btn tone="primary" autoFocus onClick={flow.next}>
-                  {primaryLabel(flow)}
-                </Btn>
-              </footer>
             </>
           )}
         </section>
       </div>
+      {/* Full width, like the header (Nov 27, 2026); Back on its left by default. */}
+      {done ? null : (
+        <footer className="flex shrink-0 items-center justify-end gap-[12px] px-[16px] py-[12px] shadow-[inset_0_1px_0_0_var(--pg-border)]">
+          {backInFooter && step > 0 ? (
+            <Btn onClick={flow.back} className="mr-auto">
+              <ArrowLeft size={16} aria-hidden="true" />
+              Back
+            </Btn>
+          ) : null}
+          <Btn onClick={flow.later}>Skip for now</Btn>
+          <Btn tone="primary" autoFocus onClick={flow.next}>
+            {primaryLabel(flow)}
+          </Btn>
+        </footer>
+      )}
     </Frame>
   );
 }
